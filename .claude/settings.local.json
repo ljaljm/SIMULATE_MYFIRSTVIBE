@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(\\(Get-Command python -ErrorAction SilentlyContinue\\).Source; \\(Get-Command python3 -ErrorAction SilentlyContinue\\).Source; \\(Get-Command chrome -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell(python -m pip install playwright --quiet 2>&1 | Select-Object -Last 3)",
+      "Skill(run)",
+      "PowerShell(Start-Process cmd -ArgumentList \"/c cd /d C:\\\\Users\\\\USER\\\\my-first-vibe && python -m http.server 8765\" -WindowStyle Hidden; Start-Sleep -Seconds 3; try { $r = Invoke-WebRequest -Uri \"http://localhost:8765/\" -UseBasicParsing -TimeoutSec 5; \"OK: $\\($r.StatusCode\\)\" } catch { \"Error: $_\" })",
+      "PowerShell(python --version 2>&1; node --version 2>&1; npx --version 2>&1)",
+      "PowerShell(py *)"
+    ]
+  }
+}

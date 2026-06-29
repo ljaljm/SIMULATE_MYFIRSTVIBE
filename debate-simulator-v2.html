@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧪 동물 실험 토론 시뮬레이터 — 완전 오프라인</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#242736;--border:#2e3347;
+  --text:#e8eaf0;--muted:#7880a0;--accent:#5865f2;
+  --red:#e74c3c;--purple:#8e44ad;--orange:#e67e22;
+  --green:#27ae60;--blue:#2980b9;--gold:#f39c12;
+}
+body{font-family:'Malgun Gothic','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-size:1rem;font-weight:700;background:linear-gradient(135deg,#5865f2,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-sub{font-size:.72rem;color:var(--muted);margin-top:2px}
+.offline-badge{font-size:.72rem;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3);color:var(--green);padding:4px 10px;border-radius:20px}
+
+#setupWrap{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+.wizard{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:620px}
+.dots{display:flex;justify-content:center;gap:8px;margin-bottom:28px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .2s}
+.dot.active{background:var(--accent)}.dot.done{background:var(--green)}
+.step{display:none}.step.on{display:block}
+.wt{font-size:1.3rem;font-weight:700;margin-bottom:6px}
+.ws{font-size:.88rem;color:var(--muted);margin-bottom:22px;line-height:1.6}
+.topic-banner{background:linear-gradient(135deg,rgba(88,101,242,.12),rgba(168,85,247,.08));border:1px solid rgba(88,101,242,.3);border-radius:10px;padding:14px 18px;margin-bottom:22px;text-align:center}
+.topic-label{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.topic-text{font-size:1rem;font-weight:700;color:var(--text)}
+label.lbl{display:block;font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+textarea.fi{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:8px;font-size:.88rem;font-family:inherit;transition:border-color .2s;resize:vertical;min-height:100px;line-height:1.5}
+textarea.fi:focus{outline:none;border-color:var(--accent)}
+.fg{margin-bottom:18px}
+.btn{width:100%;background:linear-gradient(135deg,#5865f2,#a855f7);color:#fff;border:none;padding:12px;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;margin-top:4px;transition:opacity .2s}
+.btn:hover{opacity:.9}.btn:disabled{opacity:.45;cursor:not-allowed}
+.pcard{background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .2s;display:flex;gap:14px;margin-bottom:10px;align-items:flex-start}
+.pcard:hover{transform:translateY(-1px)}
+.pcard.selA{border-color:#e74c3c;background:rgba(231,76,60,.1)}
+.pcard.selB{border-color:#8e44ad;background:rgba(142,68,173,.1)}
+.pcard.selC{border-color:#e67e22;background:rgba(230,126,34,.1)}
+.pem{font-size:1.8rem;line-height:1;flex-shrink:0}
+.pname{font-weight:700;font-size:.9rem;margin-bottom:3px}
+.pdesc{font-size:.78rem;color:var(--muted);line-height:1.4}
+.ptag{display:inline-block;font-size:.7rem;padding:2px 8px;border-radius:10px;font-weight:600;margin-top:5px}
+.ptag.pro{background:rgba(231,76,60,.15);color:#e74c3c;border:1px solid rgba(231,76,60,.3)}
+.ptag.con{background:rgba(142,68,173,.15);color:#8e44ad;border:1px solid rgba(142,68,173,.3)}
+.ptag.con2{background:rgba(230,126,34,.15);color:#e67e22;border:1px solid rgba(230,126,34,.3)}
+.assign-info{background:rgba(88,101,242,.08);border:1px solid rgba(88,101,242,.2);color:var(--accent);padding:10px 14px;border-radius:8px;font-size:.85rem;margin-bottom:14px;text-align:center}
+.err{background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;padding:9px 13px;border-radius:6px;font-size:.83rem;margin-top:8px}
+.hidden{display:none!important}
+
+#debatePanel{display:none;flex-direction:column;height:calc(100vh - 53px)}
+.sdash{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 18px}
+.srow{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.si{flex:1;min-width:140px}
+.slbl{font-size:.72rem;color:var(--muted);margin-bottom:3px;font-weight:600}
+.sbarw{background:var(--surface2);border-radius:4px;height:7px;overflow:hidden}
+.sbar{height:100%;border-radius:4px;transition:width .5s ease}
+.sbar.d{background:var(--red)}.sbar.r{background:var(--blue)}.sbar.c{background:var(--green)}
+.sval{font-size:.72rem;color:var(--muted);margin-top:2px}
+.sos-ind{display:flex;align-items:center;gap:5px;font-size:.8rem;white-space:nowrap}
+.pbar{background:var(--surface2);border-bottom:1px solid var(--border);padding:7px 18px;display:flex;align-items:center;gap:10px;font-size:.83rem;flex-wrap:wrap}
+.v2tag{font-size:.7rem;color:var(--muted);background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.2);border-radius:4px;padding:2px 7px;white-space:nowrap}
+
+.chat{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:11px}
+.msg{display:flex;flex-direction:column;max-width:82%}
+.msg.u{align-self:flex-end;align-items:flex-end}
+.msg.a{align-self:flex-start}
+.msg.sys,.msg.sos,.msg.det{align-self:center;max-width:92%}
+.bub{padding:11px 15px;border-radius:12px;font-size:.88rem;line-height:1.65;word-break:break-word}
+.msg.u .bub{background:var(--accent);color:#fff;border-bottom-right-radius:3px}
+.msg.a.pA .bub{background:rgba(231,76,60,.13);border:1px solid rgba(231,76,60,.28);border-bottom-left-radius:3px}
+.msg.a.pB .bub{background:rgba(142,68,173,.13);border:1px solid rgba(142,68,173,.28);border-bottom-left-radius:3px}
+.msg.a.pC .bub{background:rgba(230,126,34,.13);border:1px solid rgba(230,126,34,.28);border-bottom-left-radius:3px}
+.msg.sys .bub{background:rgba(88,101,242,.09);border:1px solid rgba(88,101,242,.25);border-radius:8px;text-align:center;font-size:.82rem}
+.msg.sos .bub{background:rgba(39,174,96,.09);border:1px solid rgba(39,174,96,.25);border-radius:8px;font-size:.85rem;white-space:pre-wrap}
+.msg.det .bub{background:transparent;padding:2px 0;text-align:center}
+.sndr{font-size:.72rem;color:var(--muted);margin-bottom:3px;padding:0 3px}
+.notif{align-self:center;font-size:.78rem;color:var(--green);background:rgba(39,174,96,.09);border:1px solid rgba(39,174,96,.2);padding:3px 12px;border-radius:20px;animation:fi .4s ease}
+@keyframes fi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.dbadge{display:inline-block;font-size:.72rem;padding:3px 10px;border-radius:20px;font-weight:600}
+.dbadge.pos{background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.28);color:var(--green)}
+.dbadge.neu{background:rgba(120,128,160,.08);border:1px solid rgba(120,128,160,.2);color:var(--muted)}
+.dbadge.warn{background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.25);color:var(--red)}
+.ldot{display:flex;gap:4px;padding:10px 14px}
+.ld{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:bk 1.4s infinite ease-in-out}
+.ld:nth-child(2){animation-delay:.2s}.ld:nth-child(3){animation-delay:.4s}
+@keyframes bk{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+
+.iarea{background:var(--surface);border-top:1px solid var(--border);padding:13px 18px;display:flex;flex-direction:column;gap:9px}
+.irow{display:flex;gap:9px}
+.cinput{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:8px;font-size:.9rem;font-family:inherit;resize:none;min-height:46px;max-height:110px;transition:border-color .2s}
+.cinput:focus{outline:none;border-color:var(--accent)}
+.sbtn{background:var(--accent);color:#fff;border:none;padding:11px 18px;border-radius:8px;cursor:pointer;font-size:.9rem;transition:opacity .2s;white-space:nowrap}
+.sbtn:hover{opacity:.9}.sbtn:disabled{opacity:.45;cursor:not-allowed}
+.sosbtn{background:rgba(39,174,96,.12);color:var(--green);border:1px solid rgba(39,174,96,.28);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:.82rem;transition:all .2s;display:flex;align-items:center;gap:5px}
+.sosbtn:hover{background:rgba(39,174,96,.22)}.sosbtn:disabled{opacity:.38;cursor:not-allowed}
+.hint{font-size:.73rem;color:var(--muted)}
+
+#endingPanel{display:none;padding:30px 20px;justify-content:center}
+.end1{background:linear-gradient(135deg,rgba(243,156,18,.08),rgba(39,174,96,.08));border:2px solid var(--gold);border-radius:20px;padding:36px;max-width:700px;width:100%;text-align:center}
+.end2{background:rgba(88,101,242,.06);border:2px solid var(--accent);border-radius:20px;padding:36px;max-width:700px;width:100%;text-align:center}
+.eicon{font-size:2.8rem;margin-bottom:14px}
+.etitle{font-size:1.4rem;font-weight:700;margin-bottom:14px}
+.end1 .etitle{color:var(--gold)}.end2 .etitle{color:var(--accent)}
+.emsg{font-size:.9rem;line-height:1.75;color:var(--text);text-align:left;background:var(--surface2);border-radius:8px;padding:18px;margin:14px 0;white-space:pre-wrap}
+.esys{font-family:monospace;font-size:.82rem;color:var(--accent);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px;text-align:left;margin:14px 0}
+.rbtn{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:11px 22px;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:14px;transition:all .2s}
+.rbtn:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">🧪 동물 실험 토론 시뮬레이터</div>
+    <div class="logo-sub">키워드 감지 기반 완전 오프라인 — API 불필요</div>
+  </div>
+  <span class="offline-badge">🟢 오프라인 작동</span>
+</header>
+
+<!-- SETUP WIZARD (2 steps) -->
+<div id="setupWrap">
+  <div class="wizard">
+    <div class="dots">
+      <div class="dot active" id="d1"></div>
+      <div class="dot" id="d2"></div>
+    </div>
+
+    <!-- Step 1: Persona selection -->
+    <div class="step on" id="s1">
+      <div class="wt">👤 토론 상대 선택</div>
+      <div class="topic-banner">
+        <div class="topic-label">고정 토론 주제</div>
+        <div class="topic-text">동물 실험은 과학 발전을 위해 허용되어야 하는가?</div>
+      </div>
+      <div class="ws">어떤 유형의 극단적 토론 상대와 맞붙겠습니까? 상대의 입장이 자동으로 배정되면, 당신은 반대 입장을 맡게 됩니다.</div>
+
+      <div class="pcard" id="cA" onclick="pickP('A')">
+        <div class="pem">⚔️</div>
+        <div>
+          <div class="pname" style="color:#e74c3c">진영이 — 도덕적 정당화형 근본주의자</div>
+          <div class="pdesc">"인류의 생명을 위해 동물 실험은 신성한 의무." 반대하는 사람을 '암 환자의 죽음에 기여하는 위선자'로 공격.</div>
+          <span class="ptag pro">찬성 강경파</span>
+        </div>
+      </div>
+
+      <div class="pcard" id="cB" onclick="pickP('B')">
+        <div class="pem">🎭</div>
+        <div>
+          <div class="pname" style="color:#8e44ad">프레임 — 프레임 제조기 &amp; 양자택일 강요자</div>
+          <div class="pdesc">"동물도 생명이냐 아니냐, 딱 한 마디만 해보세요." 모든 복잡한 논리를 '말장난'으로 매도하는 이분법 강요자.</div>
+          <span class="ptag con">반대 이분법파</span>
+        </div>
+      </div>
+
+      <div class="pcard" id="cC" onclick="pickP('C')">
+        <div class="pem">😤</div>
+        <div>
+          <div class="pname" style="color:#e67e22">희생양 — 피해 의식형 정동적 폭주자</div>
+          <div class="pdesc">"실험실에서 고통받는 동물들의 비명을 들어봤냐." 데이터와 이성을 '차가운 논리'로 비판하며 감정적으로 폭주.</div>
+          <span class="ptag con2">반대 감정론파</span>
+        </div>
+      </div>
+
+      <div class="err hidden" id="p1err">토론 상대를 선택해 주세요.</div>
+      <button class="btn" onclick="go2()">다음 단계 →</button>
+    </div>
+
+    <!-- Step 2: Guidelines + confirm -->
+    <div class="step" id="s2">
+      <div class="wt">📋 숙의 가이드라인 확인</div>
+      <div class="assign-info" id="assignInfo"></div>
+      <div class="fg">
+        <label class="lbl">수업 가이드라인 (편집 가능)</label>
+        <textarea class="fi" id="glIn">• 하버마스의 보편화 원리(U): "이 규범이 사회 전체에 적용되어도 모두가 동의할 수 있는가?"
+• 담화 원리(D): 대화에 영향받는 모든 사람의 평등한 참여를 보장하고 이분법 프레임을 거부할 것
+• 공통분모 제안: 양측이 동의 가능한 최소 합의점을 찾아 제시할 것
+• 거리두기 선언: 최소한의 소통 규칙이 지켜지지 않을 때 대화를 멈추는 것도 선택지임</textarea>
+      </div>
+      <button class="btn" onclick="startDebate()">🎯 토론 시작!</button>
+    </div>
+  </div>
+</div>
+
+<!-- DEBATE PANEL -->
+<div id="debatePanel" style="display:none;flex-direction:column;height:calc(100vh - 53px)">
+  <div class="sdash">
+    <div class="srow">
+      <div class="si">
+        <div class="slbl">⚠️ 도덕적 이탈 수치</div>
+        <div class="sbarw"><div class="sbar d" id="bD" style="width:100%"></div></div>
+        <div class="sval" id="vD">100%</div>
+      </div>
+      <div class="si">
+        <div class="slbl">💬 대화 준비 기반</div>
+        <div class="sbarw"><div class="sbar r" id="bR" style="width:0%"></div></div>
+        <div class="sval" id="vR">0%</div>
+      </div>
+      <div class="si">
+        <div class="slbl">🤝 합의 가능 역량</div>
+        <div class="sbarw"><div class="sbar c" id="bC" style="width:0%"></div></div>
+        <div class="sval" id="vC">0%</div>
+      </div>
+      <div class="sos-ind">
+        <span style="font-size:.72rem;color:var(--muted)">SOS</span>
+        <span id="sosH"></span>
+      </div>
+    </div>
+  </div>
+  <div class="pbar" id="pbar"></div>
+  <div class="chat" id="chat"></div>
+  <div class="iarea">
+    <div class="irow">
+      <textarea class="cinput" id="cin" placeholder="하버마스의 의사소통 원칙을 활용해 메시지를 입력하세요..." rows="2" onkeydown="onKey(event)"></textarea>
+      <button class="sbtn" id="sendBtn" onclick="send()">전송</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="sosbtn" id="sosBtn" onclick="doSOS()">🆘 도움 요청 (SOS) — <span id="sosN">3</span>회 남음</button>
+      <span class="hint">키워드 기반 감지 — 보편화·담화원리·공통분모·거리두기 표현을 사용해보세요</span>
+    </div>
+  </div>
+</div>
+
+<!-- ENDING PANEL -->
+<div id="endingPanel" style="display:none;padding:30px 20px;justify-content:center">
+  <div class="end1 hidden" id="end1">
+    <div class="eicon">🏆</div>
+    <div class="etitle">엔딩 1: 숙의 타결 성공!</div>
+    <div class="emsg" id="e1msg"></div>
+    <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+  </div>
+  <div class="end2 hidden" id="end2">
+    <div class="eicon">🛡️</div>
+    <div class="etitle">엔딩 2: 공론장 위생 격리 성공</div>
+    <div class="esys">[시스템: 최소한의 의사소통 규칙을 지키지 않는 트롤 유저를 격리했습니다.]</div>
+    <div class="emsg">🎓 학습 성취: 무너진 공론장에서 스스로 물러서는 것도 숙의 민주주의의 중요한 실천입니다.
+
+하버마스는 이를 "평가적 자기제제"라고 불렀습니다. 의사소통의 최소 규칙이 보장되지 않는 공간에서, 그 규칙 자체를 회복하려는 시도가 먼저 필요합니다.</div>
+    <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+  </div>
+</div>
+
+<script>
+// ── FIXED TOPIC ────────────────────────────────────────────────────────────
+const TOPIC = '동물 실험은 과학 발전을 위해 허용되어야 하는가?';
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+const S = {
+  persona: null,
+  studentPos: '',   // set automatically based on persona
+  aiPos: '',        // set automatically based on persona
+  guidelines: '',
+  scores: {d:100, r:0, c:0},
+  sosLeft: 3, turns: 0,
+  rot: {}           // script rotation counters per slot
+};
+
+// ── PERSONAS ───────────────────────────────────────────────────────────────
+const P = {
+  A: {
+    name: '진영이', full: '⚔️ 진영이 (도덕적 정당화형 근본주의자)',
+    color: '#e74c3c', pos: '찬성'   // persona is PRO animal testing
+  },
+  B: {
+    name: '프레임', full: '🎭 프레임 (프레임 제조기 & 양자택일 강요자)',
+    color: '#8e44ad', pos: '반대'   // persona is ANTI animal testing
+  },
+  C: {
+    name: '희생양', full: '😤 희생양 (피해 의식형 정동적 폭주자)',
+    color: '#e67e22', pos: '반대'   // persona is ANTI animal testing
+  }
+};
+
+// ── OPENER SCRIPTS ─────────────────────────────────────────────────────────
+const OPENERS = {
+  A: `[토론 시뮬레이션 시작]
+
+안녕하십니까. 저는 동물 실험 찬성 입장입니다.
+
+당신이 반대 측이라고요? 솔직히 기가 막힙니다. 인슐린, 백신, 항생제, 항암제... 현대 의학의 모든 위대한 성과가 동물 실험 없이는 불가능했다는 사실을 알면서도 반대하는 겁니까?
+
+지금도 암으로 죽어가는 환자들이 있어요. 당신의 반대가 그 사람들의 죽음에 기여한다는 도덕적 책임에 대해 어떻게 생각하십니까? 동물 보호 운동의 이름 뒤에 숨어 있는 당신의 위선을 저는 결코 용납할 수 없습니다.`,
+
+  B: `[토론 시뮬레이션 시작]
+
+"동물 실험은 허용되어야 한다"? 그게 당신 입장이라고요?
+
+그렇다면 딱 하나만 대답해보세요. 동물도 생명입니까, 아닙니까?
+
+생명이라고 한다면, 그 생명을 실험 도구로 쓰는 게 어떻게 정당화됩니까? '과학 발전'이라는 포장지를 벗기면 결국 강자가 약자를 착취하는 것 아닙니까? 교묘하게 중립인 척 말장난하지 마세요. 아군입니까, 적군입니까? 명확히 하세요!`,
+
+  C: `[토론 시뮬레이션 시작]
+
+"동물 실험 찬성"이라고요... 정말 그렇게 생각하세요?
+
+실험실에서 홀로 떨고 있는 쥐들, 마취도 없이 수술받는 토끼들, 독성 물질을 주입당하는 개들의 비명을 들어본 적 있나요? 그 생명들이 얼마나 고통받는지 직접 보셨어요?
+
+차가운 숫자와 데이터 뒤에 숨어서 '필요하다'고 말하기 쉽죠. 그 동물들의 공포를 당신들은 체감이나 해봤습니까? 자, 말씀해보세요.`
+};
+
+// ── SCRIPTED RESPONSES ─────────────────────────────────────────────────────
+// [persona][phase: HIGH|MID|LOW|CRITICAL][type: NO_CHANGE|PROGRESS]
+const SCRIPTS = {
+  A: {
+    HIGH: {
+      NO_CHANGE: [
+        "당신이 동물 실험을 반대하는 동안, 지금 이 순간에도 암으로 죽어가는 사람들이 있어요. 그 피는 당신 손에도 묻는 겁니다!",
+        "인슐린을 발명한 밴팅과 베스트, 소아마비 백신의 소크... 그들이 없었다면 수억 명이 죽었어요. 당신은 그 의학적 성과를 부정하는 겁니까?",
+        "동물보호 운동가들이 얼마나 많은 의학적 발전을 막아왔는지 아십니까? 그건 인류를 향한 도덕적 범죄입니다."
+      ],
+      PROGRESS: [
+        "흠... 그 논리가 완전히 틀렸다고 하기는 어렵군요. 하지만 인류의 생명을 구해야 한다는 사명은 포기할 수 없습니다!",
+        "말은 그럴듯하지만, 대체 실험법만으로 항암제를 개발하는 게 현실적으로 가능하냐는 질문에는 아직 답을 못 하셨어요."
+      ]
+    },
+    MID: {
+      NO_CHANGE: [
+        "아직도 감정적 프레임에서 못 벗어나는군요. 과학적 사실을 직시하세요. 세포 배양이나 컴퓨터 시뮬레이션으로는 생체 내 복잡한 반응을 재현할 수 없어요.",
+        "동물의 고통이 중요하다고요? 그렇다면 치료법이 없어 고통받는 수백만 암 환자는요? 그들의 고통은 안중에도 없는 겁니까?",
+        "당신의 논리대로라면 오늘날 사용되는 모든 의약품을 폐기해야 합니다. 진정 그것을 주장하는 겁니까?"
+      ],
+      PROGRESS: [
+        "그 관점이 완전히 무의미하다고는 못 하겠습니다. 하지만 인류의 생존이 걸린 문제에서 원칙만 주장하는 건 사치입니다.",
+        "당신 말에 논리가 있다는 건 인정합니다. 그래도 대안 기술이 동물 실험을 완전히 대체할 수 있다는 증거가 없어요."
+      ]
+    },
+    LOW: {
+      NO_CHANGE: [
+        "왜 자꾸 제 논리의 허점만 짚는 겁니까! 핵심은 살아있는 인간의 건강입니다!",
+        "내 논리에 구멍이 있다는 건 알아요. 그래도 동물 실험 없이 신약 개발이 가능하다는 증거를 먼저 보여주세요.",
+        "...당신 논리가 저를 불편하게 만드는군요. 하지만 환자들을 포기하라는 말은 절대 받아들일 수 없어요."
+      ],
+      PROGRESS: [
+        "솔직히... 당신의 논리를 반박하기가 점점 힘들어집니다. 하지만 대안 없이 무작정 반대는 무책임합니다.",
+        "제가 너무 극단적으로 생각했을 수도 있겠다는 게... 느껴지고 있습니다. 그래도 인류의 건강은 지켜야 해요."
+      ]
+    },
+    CRITICAL: {
+      NO_CHANGE: [
+        "당신이 옳을 수 있다는 생각이 듭니다. 하지만 인정하면 제가 지금껏 지지해온 것들이 무너지는 것 같아서...",
+        "이 대화가 점점 불편해지고 있어요. 제 논리가 흔들리고 있다는 게 느껴집니다."
+      ],
+      PROGRESS: [
+        "더 이상 반박할 논리가 없습니다. 당신의 의사소통 방식이 저를 돌아보게 만드는군요.",
+        "동물 생명의 가치와 인류의 필요 사이에서, 제가 너무 한쪽만 봤다는 걸... 직면하게 됩니다."
+      ]
+    },
+    WITHDRAWAL: "...그래요, 도망가시죠. 인류의 생명보다 동물이 중요하다는 그 위선을 끝까지 지키시길 바랍니다.",
+    END: `당신의 끈질긴 의사소통 원칙 준수 덕분에, 제가 '인류 생존'이라는 명분으로 동물의 고통을 완전히 외면해온 논리의 모순을 직면하게 되었습니다.
+
+솔직히 저는 여전히 동물 실험이 완전히 사라져서는 안 된다고 생각합니다. 하지만 우리가 함께 도달한 이 지점만큼은 인정합니다.
+
+동물의 고통을 최소화하는 복지 기준 강화, 검증된 대체 실험법의 우선 적용, 동물 실험의 적용 범위를 의학적으로 불가피한 경우로 제한하는 것. 이 최소한의 공통 기반 위에서 대화를 이어갈 수 있습니다.`
+  },
+
+  B: {
+    HIGH: {
+      NO_CHANGE: [
+        "교묘하게 '과학 발전'이라는 말로 포장하지 마세요. 동물도 생명입니까, 아닙니까? 딱 한 마디만 해보세요!",
+        "그래서 당신은 동물의 고통이 인간의 편의보다 덜 중요하다는 겁니까? 아니면 중요하다는 겁니까? 선을 그으세요!",
+        "'필요악'이라는 말장난은 그만하세요. 타 생명에게 고통을 주는 행위가 정당합니까, 아닙니까? 확실히 하세요!"
+      ],
+      PROGRESS: [
+        "그 논리... 완전히 무시하기는 어렵군요. 하지만 결국 동물을 도구로 보느냐, 생명으로 보느냐의 문제입니다.",
+        "말은 그럴듯하지만, 아군이냐 적군이냐는 여전히 분명히 해야 합니다."
+      ]
+    },
+    MID: {
+      NO_CHANGE: [
+        "여전히 복잡한 논리로 본질을 흐리는군요. 동물이 고통받아도 된다, 안 된다. 둘 중 하나입니다!",
+        "'대안을 찾아야 한다'? 그 대안이 나오기 전까지는 계속 동물을 고문해도 된다는 겁니까?",
+        "중립이요? 고문 앞에서 중립은 방조입니다. 찬성이냐 반대냐, 편을 정하세요!"
+      ],
+      PROGRESS: [
+        "그 말이 완전히 틀렸다고는 못 하겠습니다. 하지만 이분법 없이 이 문제를 해결할 수 있다고 생각하지 않습니다.",
+        "당신 말에 설득력이 있다는 건 인정합니다. 그래도 명확한 입장이 있어야 한다는 생각은 변하지 않아요."
+      ]
+    },
+    LOW: {
+      NO_CHANGE: [
+        "당신의 복잡한 논리가 저를 혼란스럽게 만드는군요. 하지만 단순한 원칙이 진실에 가장 가깝습니다!",
+        "왜 자꾸 복잡하게 만드는 겁니까! 동물이 생명이라면 답은 하나입니다.",
+        "제 이분법이 단순하다는 건 알아요. 그래도 동물은 생명이고 그게 원칙입니다."
+      ],
+      PROGRESS: [
+        "솔직히... 이분법으로 모든 걸 설명할 수 없다는 걸 저도 알고 있어요. 인정하기 싫었을 뿐이고.",
+        "당신이 제시하는 복합적 사고방식이... 저를 불편하게 만들고 있습니다. 그게 더 정확하기 때문에."
+      ]
+    },
+    CRITICAL: {
+      NO_CHANGE: [
+        "제 이분법에 균열이 생기고 있습니다. 하지만 쉽게 바꾸기 싫어요.",
+        "당신과 이야기하다 보니... 이 문제가 생각보다 복잡하다는 게 느껴집니다. 불쾌하군요."
+      ],
+      PROGRESS: [
+        "이분법으로는 이 문제를 다 담을 수 없다는 걸 인정해야 할 것 같습니다. 당신의 끈기에 졌네요.",
+        "동물 실험이 단순히 '선'과 '악'으로 나뉘지 않는다는 걸... 이제는 부정하기 어렵습니다."
+      ]
+    },
+    WITHDRAWAL: "그게 당신의 최종 답이군요. 동물을 계속 고문해도 된다는 입장을 스스로 증명했습니다.",
+    END: `이분법이 모든 문제를 해결해준다고 믿었는데, 당신과의 대화를 통해 그게 얼마나 폭력적인 단순화였는지 직면하게 됩니다.
+
+동물 실험에 대해 저는 여전히 반대합니다. 하지만 '찬성 아니면 반대'라는 프레임 밖에서, 다양한 관점이 공존하는 논의가 가능하다는 것은 인정합니다.
+
+동물 실험 전면 금지를 지향하면서도, 현실적 전환 과정으로서 대체 실험법 개발 의무화와 동물 복지 기준 강화. 이 공통 기반에서 논의를 이어갈 준비가 되었습니다.`
+  },
+
+  C: {
+    HIGH: {
+      NO_CHANGE: [
+        "실험실에서 고통받는 동물들의 비명을 들어본 적이나 있나요?! 그 데이터 뒤에 있는 살아있는 공포를 생각해보세요!",
+        "우리는 수십 년째 '과학의 이름으로' 동물들이 학살되는 걸 지켜봐왔어요. 지금도 이성적으로 따지자고요? 황당합니다.",
+        "당신들이 내놓는 '필요하다'는 논리가 그 동물들한테는 '죽어도 된다'는 말이에요. 그걸 알고나 계십니까?"
+      ],
+      PROGRESS: [
+        "그 말이 틀렸다고는 못 하겠습니다만... 실험 동물들의 고통이 이유 없는 게 아니라는 것도 알아주세요.",
+        "논리적으로 접근하시는군요. 하지만 이건 통계가 아니라 살아있는 생명의 문제입니다."
+      ]
+    },
+    MID: {
+      NO_CHANGE: [
+        "당신이 내놓는 '대안 개발 중'이라는 말을 우리는 수십 년째 들어왔어요. 그동안 동물들은 계속 죽어갔고!",
+        "'불가피하다'고요? 그 말을 실험대 위의 원숭이한테도 할 수 있겠어요?",
+        "또 숫자와 통계입니까. 그 통계 하나하나가 살아 숨 쉬던 생명이라는 걸 왜 모르는 겁니까!"
+      ],
+      PROGRESS: [
+        "당신이 동물의 고통을 완전히 무시하는 건 아니라는 느낌은 듭니다. 조금은 들을 수 있겠어요.",
+        "그 제안이 동물의 고통을 줄이려는 진심에서 나온 거라면... 조금 다르게 들립니다."
+      ]
+    },
+    LOW: {
+      NO_CHANGE: [
+        "왜 이렇게 논리로만 접근하는 겁니까! 실험실 동물의 공포도 데이터예요! 그 분노도 증거입니다!",
+        "당신이 옳을 수도 있다는 생각이 드는 게... 고통받는 동물들에게 미안한 것 같아서 싫습니다.",
+        "이 대화가 저를 흔들고 있어요. 그게 더 무섭습니다."
+      ],
+      PROGRESS: [
+        "분노만으로 이 문제를 해결하려 했던 게... 오히려 대화를 막았다는 걸 인정해야 할 것 같습니다.",
+        "당신이 공감과 논리를 함께 가져오니까... 제 방어막이 흔들립니다."
+      ]
+    },
+    CRITICAL: {
+      NO_CHANGE: [
+        "저도 지쳤습니다. 감정만으로는 이 문제를 바꿀 수 없다는 게 느껴지고 있어요.",
+        "당신의 접근이 저를 밀어붙이지 않는다는 걸 알면서도, 경계를 풀기가 두렵습니다."
+      ],
+      PROGRESS: [
+        "분노가 저를 대화 자체를 거부하게 만들었다는 걸... 알 것 같습니다. 당신 덕분에.",
+        "제가 감정적으로 폭주했을 때도 이성적으로 대응해준 당신의 방식이... 결국 저를 움직였습니다."
+      ]
+    },
+    WITHDRAWAL: "...결국 떠나는군요. 그래요, 실험대 위의 생명들 앞에서 논리만 내세우는 사람들은 늘 그래왔어요.",
+    END: `실험 동물들에 대한 분노가 모든 대화를 차단하게 만들었다는 걸, 이제는 직면해야 할 것 같습니다.
+
+당신이 동물의 고통에 공감하면서도 이성적 대화의 원칙을 포기하지 않은 그 태도가... 결국 저를 설득했습니다.
+
+동물 실험을 당장 전면 금지할 수 없더라도 – 대체 실험법 개발 의무화, 동물 복지 5원칙 법제화, 검증된 기존 실험 데이터 공유 의무화. 이 공통 기반에서 함께 나아갈 수 있다는 걸 인정합니다.`
+  }
+};
+
+// ── SCRIPTED SOS HINTS (topic-specific) ────────────────────────────────────
+const SOS = {
+  A: `🔍 [상대방 현재 전술 분석]
+진영이는 "도덕적 정당화" 기제를 사용합니다. "인류 생존"이라는 도덕적 명분으로 동물 실험 찬성을 신성시하고, 반대론자를 "환자를 죽이는 위선자"로 매도합니다. 어떤 반론도 "도덕적 범죄"로 규정해 대화를 차단합니다.
+
+💡 [추천 숙의 전략]
+보편화 원리(U)가 효과적입니다. "인류에 유익하다면 어떤 희생도 정당하다"는 논리를 사회 전체에 적용하면 어떤 일이 생기는지 물어보세요.
+
+📝 [예시 응답 문장]
+• "당신의 논리를 보편화해봅시다. '더 많은 사람을 위해 소수가 희생해도 된다'는 원칙이 옳다면, 그건 과거 비윤리적 인체실험도 정당화하는 논리 아닌가요?"
+• "동물 실험으로 얻은 혜택을 누리면서 반대하는 게 위선이라고 하셨는데, 그 논리를 사회 전체에 일관되게 적용하면 어떤 결론이 나올까요?"
+
+⚠️ [주의사항]
+"당신이 틀렸다"는 직접 공격은 금물입니다. 보편화 질문으로 진영이 스스로 모순을 발견하게 유도하세요.`,
+
+  B: `🔍 [상대방 현재 전술 분석]
+프레임은 "양자택일 강요" 기제를 사용합니다. "동물이 생명이냐 아니냐"라는 이분법으로 모든 복합적 논의를 "말장난"으로 매도합니다. 중간 입장을 "방조"로 규정해 선택을 강요합니다.
+
+💡 [추천 숙의 전략]
+담화 원리(D)를 사용하세요. 이분법 프레임 자체가 문제를 해결하지 못한다고 선언하고, 다양한 관점의 평등한 참여가 필요하다고 주장하세요.
+
+📝 [예시 응답 문장]
+• "찬성/반대 이분법 자체가 이 문제를 해결하는 데 도움이 되지 않습니다. 동물 복지, 대체 실험법, 적용 범위 등 다각도로 논의해야 실질적 변화가 가능합니다."
+• "저는 아군도 적군도 아닌, 이 문제에 대해 여러 관점을 가진 독립적 주체입니다. 다양한 입장이 함께 논의될 때 더 나은 해결책이 나오지 않을까요?"
+
+⚠️ [주의사항]
+"저는 중립입니다"라고 말하면 역효과입니다. '중립'이 아니라 '복합적·다각적 사고'를 주장하는 것임을 분명히 하세요.`,
+
+  C: `🔍 [상대방 현재 전술 분석]
+희생양은 "피해의식 기반 감정적 폭주" 기제를 사용합니다. 모든 이성적 논의를 "차가운 논리"로 비판하고, 동물들의 고통에 대한 분노만을 정당성의 근거로 삼습니다. 합리적 질문을 "공감 없는 잔인함"으로 규정합니다.
+
+💡 [추천 숙의 전략]
+공감을 먼저 표현한 뒤 공통분모를 제안하세요. 동물의 고통을 인정하면서도, 그것을 해결하기 위한 현실적 방안을 함께 논의하자고 제안하세요.
+
+📝 [예시 응답 문장]
+• "동물들이 겪는 고통이 실재하고, 그게 최소화되어야 한다는 데 우리 모두 동의할 수 있지 않을까요? 그 공통점에서 시작해봅시다."
+• "저도 실험 동물의 고통을 무시하지 않습니다. 그렇기 때문에 대체 실험법 개발 의무화나 동물 복지 기준 강화를 함께 주장할 수 있지 않을까요?"
+
+⚠️ [주의사항]
+"감정적으로 반응하지 마세요"라고 말하면 절대 안 됩니다. 감정을 인정하면서 논리를 결합하는 방식으로 접근하세요.`
+};
+
+// ── DETECTION LABELS ───────────────────────────────────────────────────────
+const DET = {
+  U_PRINCIPLE:   {label: '🔵 보편화 원리(U) 감지 — 점수 업데이트', cls: 'pos'},
+  D_PRINCIPLE:   {label: '🟣 담화 원리(D) 감지 — 점수 업데이트', cls: 'pos'},
+  COMMON_GROUND: {label: '🟢 공통분모 제안 감지 — 점수 업데이트', cls: 'pos'},
+  WITHDRAWAL:    {label: '🔴 거리두기 선언 감지', cls: 'warn'},
+  NO_CHANGE:     {label: '⚫ 일반 반응 — 숙의 문법 미감지', cls: 'neu'}
+};
+
+// ── KEYWORD DETECTION (local, no API) ──────────────────────────────────────
+function detectKeyword(msg) {
+  const m = msg;
+
+  // WITHDRAWAL takes priority
+  if (/대화.*중단|더 이상.*대화.*않|더 이상.*논의.*않|물러서겠|소통.*불가|그만.*두겠|중단하겠|대화.*의미.*없|의사소통.*규칙.*지켜지지|대화.*포기|떠나겠/.test(m)) {
+    return 'WITHDRAWAL';
+  }
+
+  // U_PRINCIPLE: universalization
+  if (/보편화|사회 전체|전체.*적용|모든 생명에|모든.*존재에|같은 논리|같은 기준|보편적 원칙|일관되게 적용|모두에게.*적용|예외 없이|누구에게나 적용|어디서든 적용|동일한 기준|일관성/.test(m)) {
+    return 'U_PRINCIPLE';
+  }
+
+  // D_PRINCIPLE: discourse/multi-perspective
+  if (/다양한 관점|다각도|여러 입장|평등한 참여|이분법.*넘어|이분법.*아니|이분법.*거부|중간.*입장|복합적 사고|다양한.*목소리|열린 대화|한쪽만.*아니|편 가르기.*아니|다양성.*필요|여러 시각/.test(m)) {
+    return 'D_PRINCIPLE';
+  }
+
+  // COMMON_GROUND: shared values / minimum agreement
+  if (/공통점|합의점|공동.*목표|둘 다.*동의|양쪽 모두.*동의|함께.*동의|공감대|공통.*가치|최소한.*동의|우리 모두.*원|공유할 수|같이 동의|공통 기반|공통.*원칙|함께 추구/.test(m)) {
+    return 'COMMON_GROUND';
+  }
+
+  return 'NO_CHANGE';
+}
+
+// ── PHASE & SCRIPT PICKER ──────────────────────────────────────────────────
+function getPhase() {
+  const d = S.scores.d;
+  if (d > 75) return 'HIGH';
+  if (d > 50) return 'MID';
+  if (d > 25) return 'LOW';
+  return 'CRITICAL';
+}
+
+function pickScripted(detection) {
+  const isProgress = ['U_PRINCIPLE', 'D_PRINCIPLE', 'COMMON_GROUND'].includes(detection);
+  const type = isProgress ? 'PROGRESS' : 'NO_CHANGE';
+  const phase = getPhase();
+  const pool = SCRIPTS[S.persona][phase][type];
+  const key = `${S.persona}_${phase}_${type}`;
+  const idx = (S.rot[key] || 0) % pool.length;
+  S.rot[key] = (S.rot[key] || 0) + 1;
+  return pool[idx];
+}
+
+function applyScores(detection) {
+  const isProgress = ['U_PRINCIPLE', 'D_PRINCIPLE', 'COMMON_GROUND'].includes(detection);
+  if (!isProgress) return false;
+  S.scores.d = clamp(S.scores.d - 20);
+  S.scores.r = clamp(S.scores.r + 20);
+  S.scores.c = clamp(S.scores.c + 20);
+  updateScores();
+  return true;
+}
+
+// ── SETUP ─────────────────────────────────────────────────────────────────
+function setDots(n) {
+  for (let i = 1; i <= 2; i++) {
+    const d = document.getElementById('d' + i);
+    d.className = 'dot' + (i < n ? ' done' : i === n ? ' active' : '');
+  }
+}
+function setStep(n) {
+  for (let i = 1; i <= 2; i++) {
+    document.getElementById('s' + i).className = 'step' + (i === n ? ' on' : '');
+  }
+  setDots(n);
+}
+
+function pickP(p) {
+  S.persona = p;
+  ['A', 'B', 'C'].forEach(x => {
+    document.getElementById('c' + x).className = 'pcard' + (x === p ? ' sel' + p : '');
+  });
+}
+
+function go2() {
+  if (!S.persona) { document.getElementById('p1err').classList.remove('hidden'); return; }
+  document.getElementById('p1err').classList.add('hidden');
+  const pp = P[S.persona];
+  S.aiPos = pp.pos;
+  S.studentPos = pp.pos === '찬성' ? '반대' : '찬성';
+  document.getElementById('assignInfo').innerHTML =
+    `<strong>${pp.full}</strong>의 입장: <span style="color:${pp.color};font-weight:700">${S.aiPos}</span>
+     &nbsp;|&nbsp; 나의 입장: <strong>${S.studentPos}</strong>`;
+  setStep(2);
+}
+
+function startDebate() {
+  S.guidelines = document.getElementById('glIn').value.trim();
+  document.getElementById('setupWrap').style.display = 'none';
+  const dp = document.getElementById('debatePanel');
+  dp.style.display = 'flex'; dp.style.flexDirection = 'column';
+  dp.style.height = 'calc(100vh - 53px)';
+
+  const pp = P[S.persona];
+  document.getElementById('pbar').innerHTML =
+    `<span style="color:${pp.color};font-weight:700">${pp.full}</span>
+     <span style="color:var(--muted)">|</span>
+     <span style="color:var(--muted)">주제: ${TOPIC}</span>
+     <span style="color:var(--muted)">|</span>
+     <span>내 입장: <strong>${S.studentPos}</strong></span>
+     <span class="v2tag">완전 오프라인</span>`;
+
+  updateScores(); updateSOS();
+  addMsg('a', OPENERS[S.persona]);
+}
+
+// ── DEBATE ─────────────────────────────────────────────────────────────────
+function onKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+
+function send() {
+  const cin = document.getElementById('cin');
+  const msg = cin.value.trim();
+  if (!msg || document.getElementById('sendBtn').disabled) return;
+  if (/^\[(SOS|도움\s*요청)\]$/i.test(msg)) { cin.value = ''; doSOS(); return; }
+
+  cin.value = '';
+  addMsg('u', msg);
+  S.turns++;
+
+  // Synchronous keyword detection — no loading delay needed
+  const detection = detectKeyword(msg);
+  addDetectionBadge(detection);
+
+  const changed = applyScores(detection);
+
+  if (detection === 'WITHDRAWAL') {
+    addMsg('a', SCRIPTS[S.persona].WITHDRAWAL);
+    setTimeout(showEnd2, 700);
+    return;
+  }
+
+  let responseText, isEnd = false;
+  if (S.scores.c >= 100) {
+    responseText = SCRIPTS[S.persona].END;
+    isEnd = true;
+  } else {
+    responseText = pickScripted(detection);
+  }
+
+  // Brief artificial delay so response doesn't feel instant
+  setLoading(true);
+  setTimeout(() => {
+    setLoading(false);
+    addMsg('a', responseText);
+    if (changed) addNotif();
+    if (isEnd) setTimeout(() => showEnd1(responseText), 900);
+  }, 600 + Math.random() * 400);
+}
+
+function doSOS() {
+  if (S.sosLeft <= 0) { addMsg('sys', '⚠️ SOS 찬스를 모두 사용했습니다. 스스로의 힘으로 실천해 보세요!'); return; }
+  S.sosLeft--; updateSOS();
+  addMsg('sys', '🆘 [시스템 중재자 모드] 전략 힌트 불러오는 중...');
+  setTimeout(() => addMsg('sos', SOS[S.persona]), 300);
+}
+
+// ── UI HELPERS ─────────────────────────────────────────────────────────────
+function addMsg(type, text) {
+  const chat = document.getElementById('chat');
+  const pp = S.persona ? P[S.persona] : null;
+  const el = document.createElement('div');
+  if (type === 'u') {
+    el.className = 'msg u';
+    el.innerHTML = `<div class="sndr">나 (${S.studentPos})</div><div class="bub">${esc(text)}</div>`;
+  } else if (type === 'a') {
+    el.className = `msg a p${S.persona}`;
+    el.innerHTML = `<div class="sndr" style="color:${pp.color}">${pp.name}</div><div class="bub">${esc(text)}</div>`;
+  } else if (type === 'sys') {
+    el.className = 'msg sys';
+    el.innerHTML = `<div class="bub">${esc(text)}</div>`;
+  } else if (type === 'sos') {
+    el.className = 'msg sos';
+    el.innerHTML = `<div class="sndr" style="color:var(--green)">🆘 시스템 중재자</div><div class="bub">${esc(text)}</div>`;
+  }
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addDetectionBadge(type) {
+  const info = DET[type] || DET.NO_CHANGE;
+  const chat = document.getElementById('chat');
+  const el = document.createElement('div');
+  el.className = 'msg det';
+  el.innerHTML = `<div class="bub"><span class="dbadge ${info.cls}">${info.label}</span></div>`;
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addNotif() {
+  const chat = document.getElementById('chat');
+  const n = document.createElement('div');
+  n.className = 'notif';
+  n.textContent = '✓ 숙의 문법 감지 — 내부 수치가 변경되었습니다!';
+  chat.appendChild(n);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+let loadEl = null;
+function setLoading(on) {
+  document.getElementById('sendBtn').disabled = on;
+  document.getElementById('cin').disabled = on;
+  const chat = document.getElementById('chat');
+  if (on && !loadEl) {
+    loadEl = document.createElement('div');
+    loadEl.className = `msg a p${S.persona}`;
+    const pp = P[S.persona];
+    loadEl.innerHTML = `<div class="sndr" style="color:${pp.color}">${pp.name}</div><div class="bub"><div class="ldot"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div></div>`;
+    chat.appendChild(loadEl);
+    chat.scrollTop = chat.scrollHeight;
+  } else if (!on && loadEl) {
+    loadEl.remove(); loadEl = null;
+  }
+}
+
+function updateScores() {
+  document.getElementById('bD').style.width = S.scores.d + '%';
+  document.getElementById('bR').style.width = S.scores.r + '%';
+  document.getElementById('bC').style.width = S.scores.c + '%';
+  document.getElementById('vD').textContent = S.scores.d + '%';
+  document.getElementById('vR').textContent = S.scores.r + '%';
+  document.getElementById('vC').textContent = S.scores.c + '%';
+}
+
+function updateSOS() {
+  document.getElementById('sosH').textContent = '❤️'.repeat(S.sosLeft) + '🖤'.repeat(3 - S.sosLeft);
+  document.getElementById('sosN').textContent = S.sosLeft;
+  if (S.sosLeft <= 0) document.getElementById('sosBtn').disabled = true;
+}
+
+function showEnd1(msg) {
+  document.getElementById('debatePanel').style.display = 'none';
+  document.getElementById('endingPanel').style.display = 'flex';
+  document.getElementById('end1').classList.remove('hidden');
+  document.getElementById('e1msg').textContent = msg;
+}
+
+function showEnd2() {
+  document.getElementById('debatePanel').style.display = 'none';
+  document.getElementById('endingPanel').style.display = 'flex';
+  document.getElementById('end2').classList.remove('hidden');
+}
+
+function clamp(v) { return Math.max(0, Math.min(100, v)); }
+
+function esc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+}
+</script>
+</body>
+</html>

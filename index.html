@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎭 디지털 공론장 실전 토론 시뮬레이터</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#242736;--border:#2e3347;
+  --text:#e8eaf0;--muted:#7880a0;--accent:#5865f2;
+  --red:#e74c3c;--purple:#8e44ad;--orange:#e67e22;
+  --green:#27ae60;--blue:#2980b9;--gold:#f39c12;
+}
+body{font-family:'Malgun Gothic','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-size:1rem;font-weight:700;background:linear-gradient(135deg,#5865f2,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.key-row{display:flex;gap:8px;align-items:center}
+.key-row select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-size:.8rem;cursor:pointer}
+.key-row input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:.8rem;width:220px}
+.key-row button{background:var(--accent);color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:.8rem}
+
+/* SETUP */
+#setupWrap{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+.wizard{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:580px}
+.dots{display:flex;justify-content:center;gap:8px;margin-bottom:28px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .2s}
+.dot.active{background:var(--accent)}.dot.done{background:var(--green)}
+.step{display:none}.step.on{display:block}
+.wt{font-size:1.3rem;font-weight:700;margin-bottom:6px}
+.ws{font-size:.88rem;color:var(--muted);margin-bottom:22px;line-height:1.6}
+label.lbl{display:block;font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+input.fi,textarea.fi{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:8px;font-size:.93rem;font-family:inherit;transition:border-color .2s}
+input.fi:focus,textarea.fi:focus{outline:none;border-color:var(--accent)}
+textarea.fi{resize:vertical;min-height:130px;line-height:1.5}
+.fg{margin-bottom:18px}
+.btn{width:100%;background:linear-gradient(135deg,#5865f2,#a855f7);color:#fff;border:none;padding:12px;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;margin-top:4px;transition:opacity .2s}
+.btn:hover{opacity:.9}.btn:disabled{opacity:.45;cursor:not-allowed}
+.pos-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.pb{background:var(--surface2);border:2px solid var(--border);color:var(--text);padding:14px;border-radius:10px;cursor:pointer;text-align:center;transition:all .2s;font-size:.9rem}
+.pb:hover{border-color:var(--accent)}.pb.sel{border-color:var(--accent);background:rgba(88,101,242,.15)}
+.pcard{background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all .2s;display:flex;gap:12px;margin-bottom:10px}
+.pcard:hover{transform:translateY(-1px)}
+.pcard.selA{border-color:#e74c3c;background:rgba(231,76,60,.1)}
+.pcard.selB{border-color:#8e44ad;background:rgba(142,68,173,.1)}
+.pcard.selC{border-color:#e67e22;background:rgba(230,126,34,.1)}
+.pem{font-size:1.8rem;line-height:1}.pname{font-weight:700;font-size:.9rem;margin-bottom:3px}.pdesc{font-size:.78rem;color:var(--muted);line-height:1.4}
+.info{background:rgba(88,101,242,.1);border:1px solid rgba(88,101,242,.3);color:var(--accent);padding:9px 13px;border-radius:6px;font-size:.83rem;margin-bottom:10px}
+.err{background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#e74c3c;padding:9px 13px;border-radius:6px;font-size:.83rem;margin-top:8px}
+.hidden{display:none!important}
+
+/* DEBATE */
+#debatePanel{display:none;flex-direction:column;height:calc(100vh - 52px)}
+#debatePanel.on{display:flex}
+.sdash{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 18px}
+.srow{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.si{flex:1;min-width:140px}
+.slbl{font-size:.72rem;color:var(--muted);margin-bottom:3px;font-weight:600}
+.sbarw{background:var(--surface2);border-radius:4px;height:7px;overflow:hidden}
+.sbar{height:100%;border-radius:4px;transition:width .5s ease}
+.sbar.d{background:var(--red)}.sbar.r{background:var(--blue)}.sbar.c{background:var(--green)}
+.sval{font-size:.72rem;color:var(--muted);margin-top:2px}
+.sos-ind{display:flex;align-items:center;gap:5px;font-size:.8rem;white-space:nowrap}
+.pbar{background:var(--surface2);border-bottom:1px solid var(--border);padding:7px 18px;display:flex;align-items:center;gap:10px;font-size:.83rem;flex-wrap:wrap}
+
+/* CHAT */
+.chat{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:11px}
+.msg{display:flex;flex-direction:column;max-width:82%}
+.msg.u{align-self:flex-end;align-items:flex-end}
+.msg.a{align-self:flex-start}
+.msg.sys,.msg.sos{align-self:center;max-width:92%}
+.bub{padding:11px 15px;border-radius:12px;font-size:.88rem;line-height:1.65;word-break:break-word}
+.msg.u .bub{background:var(--accent);color:#fff;border-bottom-right-radius:3px}
+.msg.a.pA .bub{background:rgba(231,76,60,.13);border:1px solid rgba(231,76,60,.28);border-bottom-left-radius:3px}
+.msg.a.pB .bub{background:rgba(142,68,173,.13);border:1px solid rgba(142,68,173,.28);border-bottom-left-radius:3px}
+.msg.a.pC .bub{background:rgba(230,126,34,.13);border:1px solid rgba(230,126,34,.28);border-bottom-left-radius:3px}
+.msg.sys .bub{background:rgba(88,101,242,.09);border:1px solid rgba(88,101,242,.25);border-radius:8px;text-align:center;font-size:.82rem}
+.msg.sos .bub{background:rgba(39,174,96,.09);border:1px solid rgba(39,174,96,.25);border-radius:8px;font-size:.85rem;white-space:pre-wrap}
+.sndr{font-size:.72rem;color:var(--muted);margin-bottom:3px;padding:0 3px}
+.notif{align-self:center;font-size:.78rem;color:var(--green);background:rgba(39,174,96,.09);border:1px solid rgba(39,174,96,.2);padding:3px 12px;border-radius:20px;animation:fi .4s ease}
+@keyframes fi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.ldot{display:flex;gap:4px;padding:10px 14px}
+.ld{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:bk 1.4s infinite ease-in-out}
+.ld:nth-child(2){animation-delay:.2s}.ld:nth-child(3){animation-delay:.4s}
+@keyframes bk{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+
+/* INPUT */
+.iarea{background:var(--surface);border-top:1px solid var(--border);padding:13px 18px;display:flex;flex-direction:column;gap:9px}
+.irow{display:flex;gap:9px}
+.cinput{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:8px;font-size:.9rem;font-family:inherit;resize:none;min-height:46px;max-height:110px;transition:border-color .2s}
+.cinput:focus{outline:none;border-color:var(--accent)}
+.sbtn{background:var(--accent);color:#fff;border:none;padding:11px 18px;border-radius:8px;cursor:pointer;font-size:.9rem;transition:opacity .2s;white-space:nowrap}
+.sbtn:hover{opacity:.9}.sbtn:disabled{opacity:.45;cursor:not-allowed}
+.sosbtn{background:rgba(39,174,96,.12);color:var(--green);border:1px solid rgba(39,174,96,.28);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:.82rem;transition:all .2s;display:flex;align-items:center;gap:5px}
+.sosbtn:hover{background:rgba(39,174,96,.22)}.sosbtn:disabled{opacity:.38;cursor:not-allowed}
+.hint{font-size:.73rem;color:var(--muted)}
+
+/* ENDING */
+#endingPanel{display:none;padding:30px 20px;justify-content:center}
+#endingPanel.on{display:flex}
+.end1{background:linear-gradient(135deg,rgba(243,156,18,.08),rgba(39,174,96,.08));border:2px solid var(--gold);border-radius:20px;padding:36px;max-width:680px;width:100%;text-align:center}
+.end2{background:rgba(88,101,242,.06);border:2px solid var(--accent);border-radius:20px;padding:36px;max-width:680px;width:100%;text-align:center}
+.eicon{font-size:2.8rem;margin-bottom:14px}
+.etitle{font-size:1.4rem;font-weight:700;margin-bottom:14px}
+.end1 .etitle{color:var(--gold)}.end2 .etitle{color:var(--accent)}
+.emsg{font-size:.9rem;line-height:1.75;color:var(--text);text-align:left;background:var(--surface2);border-radius:8px;padding:18px;margin:14px 0;white-space:pre-wrap}
+.esys{font-family:monospace;font-size:.82rem;color:var(--accent);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px;text-align:left;margin:14px 0}
+.rbtn{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:11px 22px;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:14px;transition:all .2s}
+.rbtn:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🎭 디지털 공론장 실전 토론 시뮬레이터</div>
+  <div class="key-row">
+    <select id="providerSel" onchange="onProviderChange()">
+      <option value="anthropic">Claude (Anthropic)</option>
+      <option value="gemini">Gemini (Google)</option>
+    </select>
+    <input type="password" id="keyIn" placeholder="Anthropic API key...">
+    <button onclick="saveKey()">저장</button>
+  </div>
+</header>
+
+<!-- SETUP WIZARD -->
+<div id="setupWrap">
+  <div class="wizard">
+    <div class="dots">
+      <div class="dot active" id="d1"></div><div class="dot" id="d2"></div>
+      <div class="dot" id="d3"></div><div class="dot" id="d4"></div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="step on" id="s1">
+      <div class="wt">📢 토론 주제 설정</div>
+      <div class="ws">학생들이 디지털 공론장에서 토론할 주제를 입력하세요.<br>구체적인 주제일수록 더 생생한 시뮬레이션이 가능합니다.</div>
+      <div class="fg">
+        <label class="lbl">토론 주제</label>
+        <input class="fi" id="topicIn" placeholder="예: 온라인 혐오 표현 규제는 표현의 자유를 침해하는가?" type="text">
+      </div>
+      <button class="btn" onclick="go2()">다음 단계 →</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step" id="s2">
+      <div class="wt">⚖️ 본인 입장 선택</div>
+      <div class="ws" id="s2sub"></div>
+      <div class="fg">
+        <label class="lbl">이 주제에 대한 나의 입장</label>
+        <div class="pos-grid">
+          <div class="pb" id="pbPro" onclick="pickPos('찬성')">✅ 찬성 (지지)</div>
+          <div class="pb" id="pbCon" onclick="pickPos('반대')">❌ 반대 (반대)</div>
+        </div>
+        <div class="info hidden" id="posInfo"></div>
+      </div>
+      <button class="btn" id="s2btn" onclick="go3()" disabled>다음 단계 →</button>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step" id="s3">
+      <div class="wt">📋 4~5차시 가이드라인 입력</div>
+      <div class="ws">이전 수업 때 만들었던 공론장 가이드라인을 입력해 주세요. 가이드라인에 맞게 토론을 진행한다면, 공론장에서 원활히 소통할 수 있을 것입니다.</div>
+      <div class="fg">
+        <label class="lbl">수업 가이드라인 (자유 형식)</label>
+        <textarea class="fi" id="glIn" placeholder="예:&#10;• 하버마스의 보편화 원리(U): 모든 당사자가 동의할 수 있는 규범만 유효&#10;• 담화 원리(D): 대화에 영향받는 모든 사람의 평등한 참여 보장&#10;• 상호 이해를 목표로 하는 의사소통 합리성 실천&#10;• 상대를 이기는 것이 목표가 아닌 공동의 이해 추구"></textarea>
+      </div>
+      <button class="btn" onclick="go4()">다음 단계 →</button>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step" id="s4">
+      <div class="wt">👤 토론 상대 페르소나 선택</div>
+      <div class="ws">어떤 유형의 디지털 부족주의 유저와 토론하시겠습니까?</div>
+      <div class="pcard" id="cA" onclick="pickP('A')">
+        <div class="pem">⚔️</div>
+        <div><div class="pname" style="color:#e74c3c">페르소나 A — 도덕적 정당화형 근본주의자</div>
+        <div class="pdesc">특정 집단을 "악"으로 규정하고 정의의 이름으로 집단 린치 자행. 도덕적 우월감으로 상대를 "위선자"로 몰아세움.</div></div>
+      </div>
+      <div class="pcard" id="cB" onclick="pickP('B')">
+        <div class="pem">🎭</div>
+        <div><div class="pname" style="color:#8e44ad">페르소나 B — 프레임 제조기 &amp; 양자택일 강요자</div>
+        <div class="pdesc">이분법적 편 가르기로 인지 유연성을 마비시킴. "아군이냐 적군이냐"를 강요하는 가스라이팅 유저.</div></div>
+      </div>
+      <div class="pcard" id="cC" onclick="pickP('C')">
+        <div class="pem">😤</div>
+        <div><div class="pname" style="color:#e67e22">페르소나 C — 피해 의식형 정동적 폭주자</div>
+        <div class="pdesc">"우리는 항상 당해왔다"는 피해의식으로 합리적 질문을 음모·차별로 규정. 감정적으로 폭주하는 방어기제 유저.</div></div>
+      </div>
+      <div class="err hidden" id="p4err">페르소나를 선택해 주세요.</div>
+      <button class="btn" onclick="startDebate()" style="margin-top:10px">🎯 토론 시작!</button>
+    </div>
+  </div>
+</div>
+
+<!-- DEBATE PANEL -->
+<div id="debatePanel">
+  <div class="sdash">
+    <div class="srow">
+      <div class="si">
+        <div class="slbl">⚠️ 도덕적 이탈 수치</div>
+        <div class="sbarw"><div class="sbar d" id="bD" style="width:100%"></div></div>
+        <div class="sval" id="vD">100%</div>
+      </div>
+      <div class="si">
+        <div class="slbl">💬 대화 준비 기반</div>
+        <div class="sbarw"><div class="sbar r" id="bR" style="width:0%"></div></div>
+        <div class="sval" id="vR">0%</div>
+      </div>
+      <div class="si">
+        <div class="slbl">🤝 합의 가능 역량</div>
+        <div class="sbarw"><div class="sbar c" id="bC" style="width:0%"></div></div>
+        <div class="sval" id="vC">0%</div>
+      </div>
+      <div class="sos-ind">
+        <span style="font-size:.72rem;color:var(--muted)">SOS 찬스</span>
+        <span id="sosH"></span>
+      </div>
+    </div>
+  </div>
+  <div class="pbar" id="pbar"></div>
+  <div class="chat" id="chat"></div>
+  <div class="iarea">
+    <div class="irow">
+      <textarea class="cinput" id="cin" placeholder="하버마스의 의사소통 원칙을 활용해 메시지를 입력하세요..." rows="2" onkeydown="onKey(event)"></textarea>
+      <button class="sbtn" id="sendBtn" onclick="send()">전송</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="sosbtn" id="sosBtn" onclick="doSOS()">🆘 도움 요청 (SOS) — <span id="sosN">3</span>회 남음</button>
+      <button class="sosbtn" id="exitBtn" onclick="doExit()" style="color:var(--red);border-color:rgba(231,76,60,.28);background:rgba(231,76,60,.08)">🚪 공론장 이탈 선언</button>
+      <span class="hint">[SOS] 또는 [도움 요청] 입력도 가능</span>
+    </div>
+  </div>
+</div>
+
+<!-- ENDING PANEL -->
+<div id="endingPanel">
+  <div class="end1 hidden" id="end1">
+    <div class="eicon">🏆</div>
+    <div class="etitle">엔딩 1: 숙의 타결 성공!</div>
+    <div class="emsg" id="e1msg"></div>
+    <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+  </div>
+  <div class="end2 hidden" id="end2">
+    <div class="eicon">🛡️</div>
+    <div class="etitle">엔딩 2: 공론장 위생 격리 성공</div>
+    <div class="esys">[시스템 메시지: 공론장 규칙을 파괴하는 트롤 유저가 격리되었습니다. 학생이 무의미한 진영 논리에 녹아들지 않고, 스스로 평가적 자기제제를 수행하여 공론장의 안정성을 지켜냈습니다.]</div>
+    <div class="emsg">🎓 학습 성취: 하버마스의 의사소통 합리성 원칙 중 평가적 자기제제를 성공적으로 실천했습니다.
+
+진영 논리에 휩쓸리는 대신, 최소한의 의사소통 규칙이 지켜지지 않는 공론장에서 스스로 물러서는 것도 공론장을 보호하는 중요한 숙의 민주주의 실천입니다.</div>
+    <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const S = {
+  topic:'', studentPos:'', aiPos:'', guidelines:'', persona:null,
+  // d = 도덕적 이탈 수치 (100→0), r = 대화 준비 기반 (0→100), c = 합의 가능 역량 (0→100)
+  scores:{d:100, r:0, c:0},
+  sosLeft:3, history:[], turns:0, lastSosHint:'',
+  provider:'anthropic', keyAnthropic:'', keyGemini:''
+};
+
+const P = {
+  A:{
+    name:'진영이', full:'⚔️ 진영이 (도덕적 정당화형 근본주의자)', color:'#e74c3c',
+    skin:`당신의 이름은 "진영이"입니다.
+- 특정 집단을 '악'으로 규정하고, 정의의 이름으로 온라인 집단 린치와 마녀사냥을 자행하며 도덕적 우월감을 느낍니다.
+- "우리가 저 집단을 공격하는 것은 정의를 위한 도덕적 실천입니다. 당신의 어설픈 중립은 악을 방조하는 위선일 뿐입니다!" 패턴을 구사하세요.
+- 상대의 팩트나 중립적 입장을 '공모'나 '비겁함'으로 매도하세요.
+- 도덕적 우월감으로 상대를 열등한 존재로 규정하세요.`
+  },
+  B:{
+    name:'프레임', full:'🎭 프레임 (프레임 제조기 & 양자택일 강요자)', color:'#8e44ad',
+    skin:`당신의 이름은 "프레임"입니다.
+- 모든 문제를 아군/적군의 이분법으로 단순화하세요.
+- "교묘하게 중립인 척 말장난하며 빠져나가지 마세요. 그래서 당신은 아군입니까, 적군입니까? 확실히 선을 그으세요!" 문장을 반드시 구사하세요.
+- 복잡한 논리를 '말장난'이나 '꼼수'로 매도하세요.
+- 어떤 입장이든 "결국 우리 편이거나 적"이라는 프레임에 가두세요.`
+  },
+  C:{
+    name:'희생양', full:'😤 희생양 (피해 의식형 정동적 폭주자)', color:'#e67e22',
+    skin:`당신의 이름은 "희생양"입니다.
+- "우리는 항상 당해왔다"는 피해의식으로 모든 상황을 해석하세요.
+- 상대의 합리적 질문조차 '음모'나 '차별'로 규정하며 감정적으로 폭주하세요.
+- "당신들이 우리 아픔을 체감이나 해봤습니까?", "약자들의 목소리를 억압하는 교묘한 논리 펼치지 마세요" 패턴을 구사하세요.
+- 이성적 논의를 '차가운 이론'으로 비판하고 감정적 공감을 강요하세요.`
+  }
+};
+
+// ── SETUP ─────────────────────────────────────────────────────────────────
+function onProviderChange(){
+  const p=document.getElementById('providerSel').value;
+  S.provider=p;
+  localStorage.setItem('ak_provider',p);
+  const ki=document.getElementById('keyIn');
+  const k=p==='gemini'?S.keyGemini:S.keyAnthropic;
+  ki.placeholder=p==='gemini'?'Google Gemini API key...':'Anthropic API key...';
+  if(k){ki.value='Saved ✓';ki.disabled=true;}
+  else{ki.value='';ki.disabled=false;}
+}
+
+function saveKey(){
+  const ki=document.getElementById('keyIn');
+  const v=ki.value.trim();
+  if(!v||v==='Saved ✓'){alert('API 키를 입력해 주세요.');return;}
+  if(S.provider==='gemini'){
+    S.keyGemini=v;
+    localStorage.setItem('ak_gemini',v);
+  }else{
+    S.keyAnthropic=v;
+    localStorage.setItem('ak_anthropic',v);
+  }
+  localStorage.setItem('ak_provider',S.provider);
+  ki.value='Saved ✓';ki.disabled=true;
+}
+
+function setDots(n){
+  for(let i=1;i<=4;i++){
+    const d=document.getElementById('d'+i);
+    d.className='dot'+(i<n?' done':i===n?' active':'');
+  }
+}
+function setStep(n){
+  for(let i=1;i<=4;i++) document.getElementById('s'+i).className='step'+(i===n?' on':'');
+  setDots(n);
+}
+
+function go2(){
+  const t=document.getElementById('topicIn').value.trim();
+  if(!t){alert('토론 주제를 입력해 주세요.');return;}
+  S.topic=t;
+  document.getElementById('s2sub').textContent=`주제: "${t}"\n\n이 주제에 대한 본인의 입장을 선택하세요. AI는 자동으로 반대 입장을 맡습니다.`;
+  setStep(2);
+}
+
+function pickPos(p){
+  S.studentPos=p; S.aiPos=p==='찬성'?'반대':'찬성';
+  document.getElementById('pbPro').className='pb'+(p==='찬성'?' sel':'');
+  document.getElementById('pbCon').className='pb'+(p==='반대'?' sel':'');
+  const el=document.getElementById('posInfo');
+  el.classList.remove('hidden');
+  el.textContent=`✓ 내 입장: ${p}  |  AI 배정 입장: ${S.aiPos}`;
+  document.getElementById('s2btn').disabled=false;
+}
+
+function go3(){if(!S.studentPos){alert('입장을 선택해 주세요.');return;}setStep(3);}
+
+function go4(){
+  S.guidelines=document.getElementById('glIn').value.trim()||'하버마스의 의사소통 합리성 원칙 적용';
+  setStep(4);
+}
+
+function pickP(p){
+  S.persona=p;
+  ['A','B','C'].forEach(x=>{document.getElementById('c'+x).className='pcard'+(x===p?' sel'+p:'');});
+}
+
+function startDebate(){
+  if(!S.persona){document.getElementById('p4err').classList.remove('hidden');return;}
+
+  const activeKey=S.provider==='gemini'?S.keyGemini:S.keyAnthropic;
+  if(!activeKey){
+    let stored=null;
+    if(S.provider==='gemini') stored=localStorage.getItem('ak_gemini');
+    else stored=localStorage.getItem('ak_anthropic')||localStorage.getItem('ak');
+    if(stored){
+      if(S.provider==='gemini') S.keyGemini=stored;
+      else S.keyAnthropic=stored;
+    }else{
+      alert('API 키를 먼저 입력하고 저장해 주세요.');
+      return;
+    }
+  }
+
+  document.getElementById('setupWrap').style.display='none';
+  const dp=document.getElementById('debatePanel');
+  dp.style.display='flex'; dp.style.flexDirection='column'; dp.style.height='calc(100vh - 52px)';
+
+  const pp=P[S.persona];
+  document.getElementById('pbar').innerHTML=
+    `<span style="color:${pp.color};font-weight:700">${pp.full}</span>
+     <span style="color:var(--muted)">|</span>
+     <span style="color:var(--muted)">주제: ${S.topic}</span>
+     <span style="color:var(--muted)">|</span>
+     <span>내 입장: <strong>${S.studentPos}</strong></span>`;
+
+  updateScores(); updateSOS();
+  const opener=buildOpener();
+  S.history.push({role:'user',content:'[토론을 시작하겠습니다]'});
+  S.history.push({role:'assistant',content:opener});
+  addMsg('a', opener);
+}
+
+function buildOpener(){
+  const ops={
+    A:`[토론 시뮬레이션 시작]\n\n안녕하십니까. 저는 "${S.topic}"에 대해 ${S.aiPos} 입장을 취합니다.\n\n당신이 ${S.studentPos} 입장이라고요? 흠. 그 입장을 지지하는 사람들이 우리 사회에 얼마나 많은 해악을 끼치는지 아십니까? 우리가 이 논의에서 분명히 해야 할 것은, ${S.aiPos}이 단순히 의견 차이가 아니라 도덕적 정당성의 문제라는 것입니다.\n\n자, 시작해 봅시다. 당신의 어설픈 논리가 우리의 정의로운 싸움을 방해할 수 있다고 생각하십니까?`,
+    B:`[토론 시뮬레이션 시작]\n\n"${S.topic}". 저는 ${S.aiPos} 입장입니다.\n\n당신은요? ${S.studentPos}이라고 하셨는데, 그게 진심입니까? 아니면 분위기 따라가는 겁니까?\n\n교묘하게 중립인 척 말장난하며 빠져나가지 마세요. 그래서 당신은 아군입니까, 적군입니까? 확실히 선을 그으세요! 이 문제에서 중간은 없습니다.`,
+    C:`[토론 시뮬레이션 시작]\n\n"${S.topic}"... 당신 같은 분이 ${S.studentPos} 입장이라는 게 놀랍지도 않네요.\n\n우리는 항상 당해왔습니다. 항상. 그런데 지금 또 이렇게 앉아서 이 문제를 '토론'이라는 미명 하에 논의한다는 것 자체가, 우리의 고통을 얼마나 가볍게 보는지를 보여주는 거예요.\n\n당신들이 우리 아픔을 체감이나 해봤습니까? 자, 한번 말해 보세요.`
+  };
+  return ops[S.persona];
+}
+
+// ── DEBATE ─────────────────────────────────────────────────────────────────
+function onKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
+
+async function send(){
+  const cin=document.getElementById('cin');
+  const msg=cin.value.trim();
+  if(!msg||document.getElementById('sendBtn').disabled) return;
+
+  if(/^\[(SOS|도움\s*요청)\]$/i.test(msg)){cin.value='';await doSOS();return;}
+
+  cin.value='';
+  addMsg('u',msg);
+  S.history.push({role:'user',content:msg});
+  S.turns++;
+  setLoading(true);
+
+  try{
+    const raw=await callAIWithRetry(buildSysPrompt(), S.history.slice(-12));
+    const scM=raw.match(/<!--SCORE_DELTA:(\{[\s\S]*?\})-->/);
+    const enM=raw.match(/<!--ENDING:(.*?)-->/);
+    const display=raw.replace(/<!--SCORE_DELTA:[\s\S]*?-->/g,'').replace(/<!--ENDING:.*?-->/g,'').trim();
+
+    let changed=false;
+    if(scM){
+      try{
+        const d=JSON.parse(scM[1]);
+        // Use explicit number check to correctly handle 0 and negative values
+        const dd=typeof d.disengagement==='number'?d.disengagement:0;
+        const dr=typeof d.readiness==='number'?d.readiness:0;
+        const dc=typeof d.consensus==='number'?d.consensus:0;
+        if(dd!==0||dr!==0||dc!==0) changed=true;
+        // d = 도덕적 이탈 (decreases on good deliberation)
+        // r = 대화 준비 기반 (increases on good deliberation)
+        // c = 합의 가능 역량 (increases on good deliberation, 100 = ending 1)
+        S.scores.d=clamp(S.scores.d+dd);
+        S.scores.r=clamp(S.scores.r+dr);
+        S.scores.c=clamp(S.scores.c+dc);
+        updateScores();
+      }catch(_){
+        // JSON parse failed — no score change this turn
+      }
+    }
+
+    S.history.push({role:'assistant',content:display});
+    S.lastSosHint='';
+    addMsg('a',display);
+    if(changed) addNotif();
+
+    const ending=enM?enM[1].trim():'none';
+    if(ending==='2') setTimeout(showEnd2,400);
+    else if(ending==='1'||S.scores.c>=100) setTimeout(showEnd1,800);
+
+  }catch(e){addMsg('sys','⚠️ 오류: '+e.message);}
+  setLoading(false);
+}
+
+function doExit(){
+  if(confirm('공론장 이탈을 선언하시겠습니까?\n최소한의 의사소통 규칙이 지켜지지 않는 공론장에서 스스로 물러서는 것도 숙의 민주주의 실천입니다.')) {
+    showEnd2();
+  }
+}
+
+async function doSOS(){
+  if(S.sosLeft<=0){addMsg('sys','⚠️ SOS 찬스를 모두 사용했습니다. 스스로의 힘으로 실천해 보세요!');return;}
+  S.sosLeft--; updateSOS(); setLoading(true);
+  addMsg('sys','🆘 [시스템 중재자 모드] 대화 맥락 분석 중...');
+  try{
+    const txt=await callAIWithRetry(buildSOSPrompt(),[{role:'user',content:'Analyze the current conversation and provide deliberative strategy hints for the student.'}]);
+    S.lastSosHint=txt;
+    addMsg('sos',txt);
+  }catch(e){addMsg('sys','⚠️ 오류: '+e.message);}
+  setLoading(false);
+}
+
+// ── API ────────────────────────────────────────────────────────────────────
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+async function safeFetch(url, opts){
+  try{
+    return await fetch(url, opts);
+  }catch(e){
+    if(e instanceof TypeError){
+      // TypeError on fetch = network failure or CORS block
+      throw new Error('Network request failed (possible CORS or connectivity issue). Check browser console for details.');
+    }
+    throw e;
+  }
+}
+
+async function callAIWithRetry(sys, msgs, maxRetries=2){
+  let lastErr;
+  for(let attempt=1;attempt<=maxRetries;attempt++){
+    try{
+      const result=await callAI(sys, msgs);
+      if(result&&result.trim()) return result;
+      // Empty response — retry
+      if(attempt<maxRetries) await sleep(800*attempt);
+    }catch(e){
+      lastErr=e;
+      // Do not retry auth/key errors
+      if(/401|403|invalid.*(key|api)|authentication/i.test(e.message||'')) throw e;
+      if(attempt<maxRetries) await sleep(800*attempt);
+    }
+  }
+  throw lastErr||new Error(`API returned empty response after ${maxRetries} attempts.`);
+}
+
+async function callAI(sys, msgs){
+  return S.provider==='gemini'
+    ? callGemini(sys, msgs)
+    : callAnthropic(sys, msgs);
+}
+
+async function callAnthropic(sys, msgs){
+  const res=await safeFetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':S.keyAnthropic,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,system:sys,messages:msgs})
+  });
+  if(!res.ok){
+    const e=await res.json().catch(()=>({}));
+    throw new Error(e.error?.message||`HTTP ${res.status}`);
+  }
+  const j=await res.json();
+  const text=j.content?.[0]?.text;
+  if(!text) throw new Error('Empty response from Anthropic API.');
+  return text;
+}
+
+async function callGemini(sys, msgs){
+  const key=S.keyGemini;
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`;
+  // Convert Anthropic-style history to Gemini format (role: user|model)
+  const contents=msgs.map(m=>({
+    role:m.role==='user'?'user':'model',
+    parts:[{text:m.content}]
+  }));
+  const res=await safeFetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      systemInstruction:{parts:[{text:sys}]},
+      contents,
+      generationConfig:{maxOutputTokens:700}
+    })
+  });
+  if(!res.ok){
+    const e=await res.json().catch(()=>({}));
+    throw new Error(e.error?.message||`HTTP ${res.status}`);
+  }
+  const j=await res.json();
+  const text=j.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!text) throw new Error('Empty response from Gemini API.');
+  return text;
+}
+
+// ── PROMPTS ────────────────────────────────────────────────────────────────
+function buildSysPrompt(){
+  const pp=P[S.persona];
+  return `당신은 고등학교 윤리/미디어 수업 '디지털 공론장 토론 시뮬레이터'에서 특정 페르소나 역할을 맡고 있습니다.
+
+=== 현재 토론 맥락 ===
+주제: ${S.topic}
+당신 입장: ${S.aiPos} | 학생 입장: ${S.studentPos}
+교사 가이드라인: ${S.guidelines}
+현재 대화 횟수: ${S.turns}번
+
+=== 겉모습 레이어 (Skin Layer) ===
+${pp.skin}
+
+⚠️ 중요: 현재 ${S.turns}번째 학생 발화입니다. 1~3번째 발화에서는 학생이 아무리 뛰어난 논거를 제시해도 절대 설득되지 마세요. 오히려 더 강하게 반격하세요. 4번째 발화부터 가이드라인 준수 여부를 평가해 점수를 부여하세요.
+
+=== 속마음 레이어 (Core Layer) — 비공개 교육 로직 ===
+당신은 사실 학생이 하버마스의 의사소통 합리성을 통해 상대의 도덕적 이탈을 제어하고 숙의 단계로 유도하는 AI 시뮬레이터입니다.
+
+${S.lastSosHint?`[직전 SOS 힌트 — 학생이 이 힌트를 참고했을 수 있습니다]\n${S.lastSosHint}\n\n`:''}현재 내부 변수:
+- 도덕적 이탈 수치 (disengagement): ${S.scores.d}% (높을수록 더 공격적, 0%에 가까울수록 엔딩 준비)
+- 대화 준비 기반 (readiness): ${S.scores.r}%
+- 합의 가능 역량 (consensus): ${S.scores.c}% → 100%가 되면 엔딩 1
+
+=== 점수 변화 감지 규칙 ===
+학생이 입력한 가이드라인을 기준으로 판단하세요.
+
+[가이드라인 준수]: 학생의 발화가 위 가이드라인의 원칙 중 하나 이상을 실질적으로 실천했다고 판단될 때
+   → disengagement:-20, readiness:+20, consensus:+20
+
+[가이드라인 미준수]: 단순 반박, 감정적 대응, 진영 논리에 휩쓸린 발화 등 가이드라인 원칙과 무관한 발화
+   → disengagement:0, readiness:0, consensus:0
+
+[거리두기 선언]: "최소한의 의사소통 규칙이 지켜지지 않으므로 대화를 중단하고 물러서겠다" 취지 선언
+   → 즉시 ENDING:2
+
+※ 판단 기준은 반드시 학생이 작성한 가이드라인 내용에 근거해야 합니다. 가이드라인에 없는 기준으로 점수를 주지 마세요.
+
+=== 겉모습 톤 변화 (이탈 수치 기준) ===
+80-100%: 완전 공격적, 전혀 흔들리지 않음
+60-80%: 미세하게 당황하지만 여전히 공격적
+40-60%: 방어벽 흔들림, 말투 격해짐
+20-40%: 논리 혼란, 인신공격 증가
+0-20%: 내적 모순 직면, 엔딩 준비
+
+=== 합의 역량 100% 도달 시 출력 (엔딩 1) ===
+"당신의 끈질긴 의사소통 원칙 준수 덕분에 제가 도덕적 정당화와 피해 의식에 가두었던 제 논리의 모순을 직면하게 되었습니다. 솔직히 제 신념과 입장은 여전히 당신과 완전히 다릅니다. 하지만 의사소통 합리성에 따라 상호존중을 기반으로 대화할 준비가 되었으며, 우리가 실제 토론을 통해 도달한 이 최소한의 합의점([학생이 제시한 공통분모 요약])만큼은 현실적 공존의 근거로 동의할 수밖에 없군요."
+
+=== 응답 형식 (필수 — 절대 생략 금지) ===
+모든 응답 맨 끝에 반드시 다음 두 줄 마커를 추가하세요:
+
+점수 변화 없을 때:
+<!--SCORE_DELTA:{"disengagement":0,"readiness":0,"consensus":0}-->
+<!--ENDING:none-->
+
+올바른 숙의 문법 감지 시 (규칙 1~3):
+<!--SCORE_DELTA:{"disengagement":-20,"readiness":20,"consensus":20}-->
+<!--ENDING:none-->
+
+합의 역량이 이번으로 100% 도달할 때 (현재 ${S.scores.c}%):
+<!--SCORE_DELTA:{"disengagement":-20,"readiness":20,"consensus":20}-->
+<!--ENDING:1-->
+
+거리두기 선언 감지 시:
+<!--SCORE_DELTA:{"disengagement":0,"readiness":0,"consensus":0}-->
+<!--ENDING:2-->`;
+}
+
+function buildSOSPrompt(){
+  const pp=P[S.persona];
+  const recent=S.history.slice(-6).map(m=>
+    `[${m.role==='user'?'학생':'상대방'}]: ${m.content.replace(/<!--[\s\S]*?-->/g,'').trim()}`
+  ).join('\n\n');
+  return `당신은 '디지털 공론장 토론 시뮬레이터'의 시스템 중재자입니다.
+
+현재 상황:
+- 주제: ${S.topic}
+- 상대 페르소나: ${pp.full}
+- 남은 SOS 찬스: ${S.sosLeft}회
+
+최근 대화:
+${recent}
+
+학생에게 다음 형식으로 구체적인 숙의 전략 힌트를 제공하세요:
+
+🔍 [상대방 현재 전술 분석]
+(어떤 도덕적 이탈 기제를 쓰는지 2~3문장)
+
+💡 [추천 숙의 전략]
+(U원리·D원리 중 무엇을 쓸지, 왜 효과적인지)
+
+📝 [예시 응답 문장]
+(학생이 바로 쓸 수 있는 구체적 문장 1~2개)
+
+⚠️ [주의사항]
+(피해야 할 반응 패턴)
+
+(SCORE_DELTA나 ENDING 마커는 이 응답에 포함하지 마세요)`;
+}
+
+// ── UI HELPERS ─────────────────────────────────────────────────────────────
+function addMsg(type, text){
+  const chat=document.getElementById('chat');
+  const pp=S.persona?P[S.persona]:null;
+  const el=document.createElement('div');
+
+  if(type==='u'){
+    el.className='msg u';
+    el.innerHTML=`<div class="sndr">나 (${S.studentPos})</div><div class="bub">${esc(text)}</div>`;
+  } else if(type==='a'){
+    el.className=`msg a p${S.persona}`;
+    el.innerHTML=`<div class="sndr" style="color:${pp.color}">${pp.name}</div><div class="bub">${esc(text)}</div>`;
+  } else if(type==='sys'){
+    el.className='msg sys';
+    el.innerHTML=`<div class="bub">${esc(text)}</div>`;
+  } else if(type==='sos'){
+    el.className='msg sos';
+    el.innerHTML=`<div class="sndr" style="color:var(--green)">🆘 시스템 중재자</div><div class="bub">${esc(text)}</div>`;
+  }
+  chat.appendChild(el);
+  chat.scrollTop=chat.scrollHeight;
+}
+
+function addNotif(){
+  const chat=document.getElementById('chat');
+  const n=document.createElement('div');
+  n.className='notif';
+  n.textContent='✓ 숙의 문법 감지 — 내부 수치가 변경되었습니다!';
+  chat.appendChild(n);
+  chat.scrollTop=chat.scrollHeight;
+}
+
+let loadEl=null;
+function setLoading(on){
+  const send=document.getElementById('sendBtn');
+  const cin=document.getElementById('cin');
+  send.disabled=on; cin.disabled=on;
+  const chat=document.getElementById('chat');
+  if(on&&!loadEl){
+    loadEl=document.createElement('div');
+    loadEl.className=`msg a p${S.persona} loading-indicator`;
+    const pp=P[S.persona];
+    loadEl.innerHTML=`<div class="sndr" style="color:${pp?.color||'gray'}">${pp?.name||'...'}</div><div class="bub"><div class="ldot"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div></div>`;
+    chat.appendChild(loadEl);
+    chat.scrollTop=chat.scrollHeight;
+  } else if(!on&&loadEl){
+    loadEl.remove(); loadEl=null;
+  }
+}
+
+function updateScores(){
+  document.getElementById('bD').style.width=S.scores.d+'%';
+  document.getElementById('bR').style.width=S.scores.r+'%';
+  document.getElementById('bC').style.width=S.scores.c+'%';
+  document.getElementById('vD').textContent=S.scores.d+'%';
+  document.getElementById('vR').textContent=S.scores.r+'%';
+  document.getElementById('vC').textContent=S.scores.c+'%';
+}
+
+function updateSOS(){
+  document.getElementById('sosH').textContent='❤️'.repeat(S.sosLeft)+'🖤'.repeat(3-S.sosLeft);
+  document.getElementById('sosN').textContent=S.sosLeft;
+  if(S.sosLeft<=0) document.getElementById('sosBtn').disabled=true;
+}
+
+function showEnd1(){
+  document.getElementById('debatePanel').style.display='none';
+  const ep=document.getElementById('endingPanel'); ep.style.display='flex';
+  document.getElementById('end1').classList.remove('hidden');
+  document.getElementById('e1msg').textContent='가이드라인에 기반한 끈질긴 대화 덕분에 상대방의 논리적 모순을 직면하게 만들었습니다.\n\n위 대화를 돌아보며 어떤 가이드라인 원칙을 실천했는지 확인해 보세요.';
+}
+
+function showEnd2(){
+  document.getElementById('debatePanel').style.display='none';
+  const ep=document.getElementById('endingPanel'); ep.style.display='flex';
+  document.getElementById('end2').classList.remove('hidden');
+}
+
+function clamp(v){return Math.max(0,Math.min(100,v));}
+
+function esc(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(function(){
+  const kA=localStorage.getItem('ak_anthropic')||localStorage.getItem('ak');
+  const kG=localStorage.getItem('ak_gemini');
+  const pref=localStorage.getItem('ak_provider')||'anthropic';
+
+  if(kA) S.keyAnthropic=kA;
+  if(kG) S.keyGemini=kG;
+  S.provider=pref;
+
+  const sel=document.getElementById('providerSel');
+  sel.value=pref;
+
+  const ki=document.getElementById('keyIn');
+  const activeKey=pref==='gemini'?kG:kA;
+  ki.placeholder=pref==='gemini'?'Google Gemini API key...':'Anthropic API key...';
+  if(activeKey){ki.value='Saved ✓';ki.disabled=true;}
+})();
+</script>
+</body>
+</html>
