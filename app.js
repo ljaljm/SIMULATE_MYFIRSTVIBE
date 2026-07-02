@@ -281,7 +281,7 @@ async function callAnthropic(sys,msgs){
 
 async function callGemini(sys,msgs){
   const key=S.keyGemini;
-  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`;
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`;
   const contents=msgs.map(m=>({
     role:m.role==='user'?'user':'model',
     parts:[{text:m.content}]
