@@ -267,7 +267,7 @@ async function callAnthropic(sys,msgs){
       'anthropic-version':'2023-06-01',
       'anthropic-dangerous-direct-browser-access':'true'
     },
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,system:sys,messages:msgs})
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1200,system:sys,messages:msgs})
   });
   if(!res.ok){
     const e=await res.json().catch(()=>({}));
@@ -292,7 +292,7 @@ async function callGemini(sys,msgs){
     body:JSON.stringify({
       systemInstruction:{parts:[{text:sys}]},
       contents,
-      generationConfig:{maxOutputTokens:700}
+      generationConfig:{maxOutputTokens:1200}
     })
   });
   if(!res.ok){
