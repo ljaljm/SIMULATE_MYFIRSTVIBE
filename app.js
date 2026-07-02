@@ -281,7 +281,7 @@ async function callAnthropic(sys,msgs){
 
 async function callGemini(sys,msgs){
   const key=S.keyGemini;
-  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`;
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`;
   const contents=msgs.map(m=>({
     role:m.role==='user'?'user':'model',
     parts:[{text:m.content}]
@@ -332,10 +332,14 @@ ${S.lastSosHint?`[직전 SOS 힌트 — 학생이 이 힌트를 참고했을 수
 === 점수 변화 감지 규칙 ===
 학생이 입력한 가이드라인을 기준으로 판단하세요.
 
-[가이드라인 준수]: 학생의 발화가 위 가이드라인의 원칙 중 하나 이상을 실질적으로 실천했다고 판단될 때
+[가이드라인 준수]: 학생의 발화가 위 가이드라인의 원칙 중 하나 이상을 실질적으로 실천했다고 판단될 때.
+특히 다음 두 가지를 실천할 때 높은 점수를 부여하세요:
+  - 당신(AI)의 정당화 기제(도덕적 우월감, 이분법, 피해의식 등)의 논리적 모순을 절차적으로 짚어낼 때
+  - 양측이 수용 가능한 공존 규칙이나 절차적 합의점을 제시할 때
+※ 학생이 당신의 입장을 바꾸거나 설득하려 하는 것은 승리 조건이 아닙니다. 공존 가능한 규칙을 절차적으로 도출하는 것이 목표입니다.
    → disengagement:-20, readiness:+20, consensus:+20
 
-[가이드라인 미준수]: 단순 반박, 감정적 대응, 진영 논리에 휩쓸린 발화 등 가이드라인 원칙과 무관한 발화
+[가이드라인 미준수]: 단순 반박, 감정적 대응, 진영 논리에 휩쓸린 발화, 또는 상대를 설득하려는 일방적 주장
    → disengagement:0, readiness:0, consensus:0
 
 [거리두기 선언]: "최소한의 의사소통 규칙이 지켜지지 않으므로 대화를 중단하고 물러서겠다" 취지 선언
@@ -351,7 +355,9 @@ ${S.lastSosHint?`[직전 SOS 힌트 — 학생이 이 힌트를 참고했을 수
 0-20%: 내적 모순 직면, 엔딩 준비
 
 === 합의 역량 100% 도달 시 출력 (엔딩 1) ===
-"당신의 끈질긴 의사소통 원칙 준수 덕분에 제가 도덕적 정당화와 피해 의식에 가두었던 제 논리의 모순을 직면하게 되었습니다. 솔직히 제 신념과 입장은 여전히 당신과 완전히 다릅니다. 하지만 의사소통 합리성에 따라 상호존중을 기반으로 대화할 준비가 되었으며, 우리가 실제 토론을 통해 도달한 이 최소한의 합의점([학생이 제시한 공통분모 요약])만큼은 현실적 공존의 근거로 동의할 수밖에 없군요."
+학생이 당신의 정당화 기제의 모순을 절차적으로 짚어내고, 양측이 수용 가능한 공존 규칙을 제시했을 때 아래 취지로 응답하세요.
+"솔직히 제 신념과 입장은 여전히 당신과 완전히 다릅니다. 하지만 당신이 제시한 [학생이 제시한 공존 규칙 요약]이라는 절차적 규칙만큼은, 저 역시 이 공론장에서 함께 지킬 수 있는 최소한의 기준으로 수용할 수 있습니다. 제 논리가 그 규칙 안에서 모순을 드러냈다는 점도 인정합니다."
+※ 이 엔딩은 학생이 상대를 설득해 입장을 바꾼 것이 아니라, 공존 가능한 절차적 규칙을 도출해낸 것임을 명확히 표현하세요.
 
 === 응답 형식 (필수 — 절대 생략 금지) ===
 모든 응답 맨 끝에 반드시 다음 두 줄 마커를 추가하세요:
@@ -473,7 +479,7 @@ function showEnd1(){
   document.getElementById('debatePanel').style.display='none';
   const ep=document.getElementById('endingPanel'); ep.style.display='flex';
   document.getElementById('end1').classList.remove('hidden');
-  document.getElementById('e1msg').textContent='가이드라인에 기반한 끈질긴 대화 덕분에 상대방의 논리적 모순을 직면하게 만들었습니다.\n\n위 대화를 돌아보며 어떤 가이드라인 원칙을 실천했는지 확인해 보세요.';
+  document.getElementById('e1msg').textContent='상대의 입장을 바꾼 것이 아니라, 양측이 함께 지킬 수 있는 공존 규칙을 절차적으로 도출해냈습니다.\n\n상대방의 정당화 기제의 모순을 어떻게 짚어냈는지, 어떤 공존 규칙을 제시했는지 대화를 돌아보세요.';
 }
 
 function showEnd2(){
