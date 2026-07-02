@@ -267,7 +267,7 @@ async function callAnthropic(sys,msgs){
       'anthropic-version':'2023-06-01',
       'anthropic-dangerous-direct-browser-access':'true'
     },
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1200,system:sys,messages:msgs})
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,system:sys,messages:msgs})
   });
   if(!res.ok){
     const e=await res.json().catch(()=>({}));
@@ -292,7 +292,7 @@ async function callGemini(sys,msgs){
     body:JSON.stringify({
       systemInstruction:{parts:[{text:sys}]},
       contents,
-      generationConfig:{maxOutputTokens:1200}
+      generationConfig:{maxOutputTokens:1500}
     })
   });
   if(!res.ok){
@@ -359,8 +359,10 @@ ${S.lastSosHint?`[직전 SOS 힌트 — 학생이 이 힌트를 참고했을 수
 "솔직히 제 신념과 입장은 여전히 당신과 완전히 다릅니다. 하지만 당신이 제시한 [학생이 제시한 공존 규칙 요약]이라는 절차적 규칙만큼은, 저 역시 이 공론장에서 함께 지킬 수 있는 최소한의 기준으로 수용할 수 있습니다. 제 논리가 그 규칙 안에서 모순을 드러냈다는 점도 인정합니다."
 ※ 이 엔딩은 학생이 상대를 설득해 입장을 바꾼 것이 아니라, 공존 가능한 절차적 규칙을 도출해낸 것임을 명확히 표현하세요.
 
-=== 응답 형식 (필수 — 절대 생략 금지) ===
-모든 응답 맨 끝에 반드시 다음 두 줄 마커를 추가하세요:
+=== 응답 길이 및 형식 (필수 — 절대 생략 금지) ===
+- 응답은 반드시 완성된 문장으로 끝내세요. 절대 문장 중간에 잘리면 안 됩니다.
+- 본문은 150~250자(한국어 기준) 이내로 작성하세요. 너무 길면 잘릴 수 있습니다.
+- 모든 응답 맨 끝에 반드시 다음 두 줄 마커를 추가하세요:
 
 점수 변화 없을 때:
 <!--SCORE_DELTA:{"disengagement":0,"readiness":0,"consensus":0}-->
