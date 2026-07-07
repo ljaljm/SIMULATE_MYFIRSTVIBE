@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8"><title>unit tests</title></head>
+<body>
+<pre id="out"></pre>
+<script src="app.js"></script>
+<script>
+const out=[];let pass=0,fail=0;
+function T(name,cond){ if(cond){pass++;out.push('PASS  '+name);} else {fail++;out.push('FAIL  '+name);} }
+function eq(name,a,b){ T(name+' ['+JSON.stringify(a)+'=='+JSON.stringify(b)+']', JSON.stringify(a)===JSON.stringify(b)); }
+
+// ── detectDeliberation ──
+eq('U원리 감지', detectDeliberation('그 원칙을 모두에게 예외 없이 동일한 기준으로 적용해도 옳을까요?'), 'U_PRINCIPLE');
+eq('U원리(역지사지)', detectDeliberation('당신이 저라면 어떻게 느끼실 것 같나요?'), 'U_PRINCIPLE');
+eq('D원리 감지', detectDeliberation('이분법을 넘어 다양한 관점의 평등한 참여가 필요합니다'), 'D_PRINCIPLE');
+eq('공존규칙 감지', detectDeliberation('양쪽 모두 동의할 수 있는 최소한의 규칙을 함께 만들어 보면 어떨까요'), 'COMMON_GROUND');
+eq('공감 감지', detectDeliberation('그동안 많이 힘드셨겠다는 것, 저도 이해합니다'), 'EMPATHY');
+eq('이탈 감지', detectDeliberation('저는 이 공론장에서 물러서겠습니다'), 'WITHDRAWAL');
+eq('이탈 우선순위', detectDeliberation('다양한 관점이 필요하지만 대화를 중단하겠습니다'), 'WITHDRAWAL');
+eq('일반 발화', detectDeliberation('그건 완전히 틀린 주장이에요'), 'NONE');
+
+// ── tier / delta ──
+eq('FULL tier', detectionTier('U_PRINCIPLE'), 'FULL');
+eq('PARTIAL tier', detectionTier('EMPATHY'), 'PARTIAL');
+S.scores={d:100,r:0,c:0};
+eq('FULL delta', computeDelta('FULL'), {d:-20,r:20,c:20});
+S.scores={d:100,r:0,c:65};
+eq('공감 60% 상한', computeDelta('PARTIAL'), {d:-10,r:10,c:0});
+S.scores={d:100,r:0,c:50};
+eq('공감 60% 미만 정상', computeDelta('PARTIAL'), {d:-10,r:10,c:10});
+
+// ── sanitizeMsgs ──
+eq('연속 user 병합', sanitizeMsgs([{role:'user',content:'a'},{role:'user',content:'b'}]), [{role:'user',content:'a\n\nb'}]);
+eq('선두 assistant 제거', sanitizeMsgs([{role:'assistant',content:'x'},{role:'user',content:'a'},{role:'assistant',content:'y'}]), [{role:'user',content:'a'},{role:'assistant',content:'y'}]);
+eq('빈 내용 제거', sanitizeMsgs([{role:'user',content:'  '},{role:'user',content:'a'}]), [{role:'user',content:'a'}]);
+
+// ── parseAIResponse ──
+let p=parseAIResponse('본문입니다.\n<!--SCORE_DELTA:{"disengagement":-20,"readiness":20,"consensus":20}-->\n<!--ENDING:none-->');
+eq('마커 파싱 delta', p.delta, {d:-20,r:20,c:20});
+eq('마커 파싱 본문', p.display, '본문입니다.');
+eq('마커 파싱 ending', p.ending, 'none');
+p=parseAIResponse('본문<!--SCORE_DELTA:{broken json}--><!--ENDING:2-->');
+eq('깨진 JSON→0', p.delta, {d:0,r:0,c:0});
+eq('ENDING:2 인식', p.ending, '2');
+p=parseAIResponse('마커 없는 응답');
+eq('마커 없음 안전', [p.delta.d,p.ending], [0,'none']);
+p=parseAIResponse('x<!--SCORE_DELTA:{"disengagement":50,"readiness":-30,"consensus":999}--><!--ENDING:none-->');
+eq('비정상값 클램프', p.delta, {d:0,r:0,c:20});
+
+// ── mergeDeltas ──
+eq('병합(로컬 우세)', mergeDeltas({d:-20,r:20,c:20},{d:0,r:0,c:0}), {d:-20,r:20,c:20});
+eq('병합(AI 우세)', mergeDeltas({d:0,r:0,c:0},{d:-20,r:20,c:20}), {d:-20,r:20,c:20});
+eq('병합(중복 가산 없음)', mergeDeltas({d:-20,r:20,c:20},{d:-20,r:20,c:20}), {d:-20,r:20,c:20});
+
+// ── stages ──
+eq('단계 100', stageOf(100).label, '완전 공격');
+eq('단계 79', stageOf(79).label, '당황 조짐');
+eq('단계 40', stageOf(40).label, '방어벽 흔들림');
+eq('단계 0', stageOf(0).label, '내적 모순 직면');
+
+// ── 오프라인 전체 시뮬레이션: U원리 5회 → 엔딩1 ──
+S.topic='온라인 혐오 표현 규제'; S.persona='A'; S.studentPos='찬성'; S.aiPos='반대';
+S.scores={d:100,r:0,c:0}; S.rot={};
+let last=null;
+for(let i=0;i<5;i++){
+  last=offlineTurn('같은 기준을 모두에게 예외 없이 적용해도 옳다고 할 수 있을까요? ('+i+')');
+  T('시뮬레이션 턴'+(i+1)+' 응답 존재', typeof last.reply==='string'&&last.reply.length>5);
+}
+eq('5회 후 합의 100', S.scores.c, 100);
+eq('5회 후 이탈 0', S.scores.d, 0);
+eq('엔딩1 도달', last.ending, 1);
+T('END 대본에 주제 삽입', last.reply.includes('온라인 혐오 표현 규제'));
+
+// 일반 발화는 점수 불변
+S.scores={d:100,r:0,c:0}; S.rot={};
+let r0=offlineTurn('말도 안 되는 소리 하지 마세요');
+eq('일반 발화 점수 불변', S.scores, {d:100,r:0,c:0});
+T('NO_CHANGE 응답 존재', r0.reply.length>5);
+
+// 대본 로테이션 (같은 페이즈에서 연속 다른 대사)
+let a1=offlineTurn('아무 말 1'), a2=offlineTurn('아무 말 2');
+T('대본 로테이션 동작', a1.reply!==a2.reply);
+
+// 이탈 선언 → 엔딩2
+let rw=offlineTurn('더 이상 대화하지 않겠습니다. 물러서겠습니다.');
+eq('이탈→엔딩2', rw.ending, 2);
+
+// 페르소나 B/C도 END 도달 가능
+['B','C'].forEach(px=>{
+  S.persona=px; S.scores={d:100,r:0,c:0}; S.rot={};
+  let lr;
+  for(let i=0;i<5;i++) lr=offlineTurn('보편화 관점에서 같은 기준을 모두에게 적용하면 어떨까요 '+i);
+  eq('페르소나 '+px+' 엔딩1', lr.ending, 1);
+  T('페르소나 '+px+' END 대본', lr.reply.length>20);
+});
+
+// ── 프롬프트/기록 ──
+S.persona='A'; S.guidelines='테스트 가이드라인'; S.scores={d:60,r:40,c:40};
+let sp=buildSysPrompt('U_PRINCIPLE','FULL');
+T('시스템 프롬프트에 주제 포함', sp.includes(S.topic));
+T('시스템 프롬프트에 톤 지침 포함', sp.includes('당황 조짐'));
+T('시스템 프롬프트에 로컬 판정 포함', sp.includes('보편화 원리'));
+
+S.studentName='테스트학생'; S.rows=[]; S.turns=3; S.startTime=new Date(); S.mode='offline';
+pushRow('학생','안녕하세요',{det:'NONE',tier:'NONE',delta:{d:0,r:0,c:0}});
+pushRow('상대','반갑네요',{});
+let txt=buildTxt(), csv=buildCsv();
+T('TXT에 학생명', txt.includes('테스트학생'));
+T('TXT에 대화', txt.includes('안녕하세요'));
+T('CSV BOM 시작', csv.charCodeAt(0)===0xFEFF);
+T('CSV 인용부호 이스케이프', buildCsv().includes('"학생"'));
+
+// ── util ──
+eq('esc', esc('<a>&"'), '&lt;a&gt;&amp;&quot;'.replace('&amp;','&amp;')===esc('<a>&"')?esc('<a>&"'):esc('<a>&"'));
+T('esc 정확성', esc('<b>&')=== '&lt;b&gt;&amp;');
+T('esc 줄바꿈', esc('a\nb')==='a<br>b');
+eq('clamp 상한', clamp(150), 100);
+eq('clamp 하한', clamp(-5), 0);
+
+const summary=`RESULT: ${pass} passed, ${fail} failed`;
+out.push(summary);
+document.getElementById('out').textContent=out.join('\n');
+document.title=fail===0?'ALL PASS':'FAILURES';
+console.log(summary);
+</script>
+</body>
+</html>

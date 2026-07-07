@@ -6,7 +6,16 @@
       "Skill(run)",
       "PowerShell(Start-Process cmd -ArgumentList \"/c cd /d C:\\\\Users\\\\USER\\\\my-first-vibe && python -m http.server 8765\" -WindowStyle Hidden; Start-Sleep -Seconds 3; try { $r = Invoke-WebRequest -Uri \"http://localhost:8765/\" -UseBasicParsing -TimeoutSec 5; \"OK: $\\($r.StatusCode\\)\" } catch { \"Error: $_\" })",
       "PowerShell(python --version 2>&1; node --version 2>&1; npx --version 2>&1)",
-      "PowerShell(py *)"
+      "PowerShell(py *)",
+      "Bash(git -C \"C:\\\\Users\\\\USER\\\\my-first-vibe\" log --oneline -15)",
+      "Bash(git -C \"C:\\\\Users\\\\USER\\\\my-first-vibe\" remote -v)",
+      "Bash(git -C \"C:\\\\Users\\\\USER\\\\my-first-vibe\" status --short)",
+      "PowerShell(node --version)",
+      "PowerShell(python --version)",
+      "Bash(git mv *)",
+      "Bash(perl -i -pe \"s/return '\\\\x{FEFF}'/return '\\\\\\\\\\\\\\\\uFEFF'/ if \\\\$.==849\" app.js)",
+      "Bash(sed -i \"849s/return '\\\\xEF\\\\xBB\\\\xBF'/return '\\\\\\\\\\\\\\\\uFEFF'/\" app.js)",
+      "Bash(cp \"C:\\\\Users\\\\USER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-USER-my-first-vibe\\\\c16f9f88-6dae-4c09-8419-8908062ae43f\\\\scratchpad\\\\serve.ps1\" \"C:\\\\Users\\\\USER\\\\my-first-vibe\\\\.claude\\\\serve.ps1\")"
     ]
   }
 }

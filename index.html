@@ -4,20 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🎭 디지털 공론장 실전 토론 시뮬레이터</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
   <div class="logo">🎭 디지털 공론장 실전 토론 시뮬레이터</div>
   <div class="key-row">
-    <select id="providerSel" onchange="onProviderChange()">
-      <option value="anthropic">Claude (Anthropic)</option>
-      <option value="gemini">Gemini (Google)</option>
+    <select id="modeSel" onchange="onModeChange()">
+      <option value="offline">🔌 오프라인 모드 (API 불필요)</option>
+      <option value="proxy">🏫 교사 프록시 서버</option>
+      <option value="anthropic">🔑 Claude 직접 (개인 키)</option>
+      <option value="gemini">🔑 Gemini 직접 (개인 키)</option>
     </select>
-    <input type="password" id="keyIn" placeholder="Anthropic API key...">
-    <button onclick="saveKey()">저장</button>
+    <input type="text" id="proxyUrlIn" class="hidden" placeholder="프록시 주소 https://...">
+    <input type="password" id="proxyCodeIn" class="hidden" placeholder="접속 코드 (선택)">
+    <input type="password" id="keyIn" class="hidden" placeholder="API key...">
+    <button id="connBtn" class="hidden" onclick="saveConn()">저장</button>
+    <span id="connStat" class="connstat"></span>
   </div>
 </header>
+
 <!-- SETUP WIZARD -->
 <div id="setupWrap">
   <div class="wizard">
@@ -27,8 +34,12 @@
     </div>
     <!-- Step 1 -->
     <div class="step on" id="s1">
-      <div class="wt">📢 토론 주제 설정</div>
-      <div class="ws">학생들이 디지털 공론장에서 토론할 주제를 입력하세요.<br>구체적인 주제일수록 더 생생한 시뮬레이션이 가능합니다.</div>
+      <div class="wt">📢 토론 준비</div>
+      <div class="ws">이름과 토론 주제를 입력하세요.<br>구체적인 주제일수록 더 생생한 시뮬레이션이 가능합니다.</div>
+      <div class="fg">
+        <label class="lbl">이름 / 학번 (활동 기록 저장용)</label>
+        <input class="fi" id="nameIn" placeholder="예: 2학년 3반 15번 홍길동" type="text">
+      </div>
       <div class="fg">
         <label class="lbl">토론 주제</label>
         <input class="fi" id="topicIn" placeholder="예: 온라인 혐오 표현 규제는 표현의 자유를 침해하는가?" type="text">
@@ -51,8 +62,8 @@
     </div>
     <!-- Step 3 -->
     <div class="step" id="s3">
-      <div class="wt">📋 4~5차시 가이드라인 입력</div>
-      <div class="ws">이전 수업 때 만들었던 공론장 가이드라인을 입력해 주세요. 가이드라인에 맞게 토론을 진행한다면, 공론장에서 원활히 소통할 수 있을 것입니다.</div>
+      <div class="wt">📋 우리 반 공론장 가이드라인 입력</div>
+      <div class="ws">이전 수업 때 우리가 함께 만든 공론장 가이드라인을 입력해 주세요. 가이드라인의 원리를 실천하는 발화가 상대를 변화시킵니다.</div>
       <div class="fg">
         <label class="lbl">수업 가이드라인 (자유 형식)</label>
         <textarea class="fi" id="glIn" placeholder="예:&#10;• 하버마스의 보편화 원리(U): 모든 당사자가 동의할 수 있는 규범만 유효&#10;• 담화 원리(D): 대화에 영향받는 모든 사람의 평등한 참여 보장&#10;• 상호 이해를 목표로 하는 의사소통 합리성 실천&#10;• 상대를 이기는 것이 목표가 아닌 공동의 이해 추구"></textarea>
@@ -83,12 +94,20 @@
     </div>
   </div>
 </div>
+
 <!-- DEBATE PANEL -->
 <div id="debatePanel">
   <div class="sdash">
     <div class="srow">
+      <div class="stagebox" id="stageBox" title="상대 페르소나의 현재 심리 단계">
+        <div class="stEmoji" id="stEmoji">🔥</div>
+        <div>
+          <div class="stLabel" id="stLabel">완전 공격</div>
+          <div class="stDots" id="stDots"></div>
+        </div>
+      </div>
       <div class="si">
-        <div class="slbl">⚠️ 도덕적 이탈 수치</div>
+        <div class="slbl">⚠️ 상대의 도덕적 이탈</div>
         <div class="sbarw"><div class="sbar d" id="bD" style="width:100%"></div></div>
         <div class="sval" id="vD">100%</div>
       </div>
@@ -105,8 +124,10 @@
       <div class="sos-ind">
         <span style="font-size:.72rem;color:var(--muted)">SOS 찬스</span>
         <span id="sosH"></span>
+        <span class="turnct" id="turnCt">턴 0</span>
       </div>
     </div>
+    <div class="dash-note">※ 위 지표는 <b>상대방의 상태</b>입니다 — 가이드라인의 원리를 실천하는 발화가 상대의 도덕적 이탈을 낮추고 합의 역량을 키웁니다.</div>
   </div>
   <div class="pbar" id="pbar"></div>
   <div class="chat" id="chat"></div>
@@ -117,25 +138,37 @@
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <button class="sosbtn" id="sosBtn" onclick="doSOS()">🆘 도움 요청 (SOS) — <span id="sosN">3</span>회 남음</button>
+      <button class="sosbtn" id="saveBtn" onclick="saveTxt()" style="color:var(--blue);border-color:rgba(41,128,185,.3);background:rgba(41,128,185,.08)">💾 기록 저장</button>
       <button class="sosbtn" id="exitBtn" onclick="doExit()" style="color:var(--red);border-color:rgba(231,76,60,.28);background:rgba(231,76,60,.08)">🚪 공론장 이탈 선언</button>
       <span class="hint">[SOS] 또는 [도움 요청] 입력도 가능</span>
     </div>
   </div>
 </div>
+
 <!-- ENDING PANEL -->
 <div id="endingPanel">
   <div class="end1 hidden" id="end1">
     <div class="eicon">🏆</div>
     <div class="etitle">엔딩 1: 숙의 타결 성공!</div>
+    <div class="estats" id="endStats1"></div>
     <div class="emsg" id="e1msg"></div>
-    <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+    <div class="ebtns">
+      <button class="rbtn" onclick="saveTxt()">💾 대화록 저장 (.txt)</button>
+      <button class="rbtn" onclick="saveCsv()">📊 데이터 저장 (.csv)</button>
+      <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+    </div>
   </div>
   <div class="end2 hidden" id="end2">
     <div class="eicon">🛡️</div>
     <div class="etitle">엔딩 2: 공론장 위생 격리 성공</div>
+    <div class="estats" id="endStats2"></div>
     <div class="esys">[시스템 메시지: 공론장 규칙을 파괴하는 트롤 유저가 격리되었습니다. 학생이 무의미한 진영 논리에 녹아들지 않고, 스스로 평가적 자기제제를 수행하여 공론장의 안정성을 지켜냈습니다.]</div>
     <div class="emsg">🎓 학습 성취: 하버마스의 의사소통 합리성 원칙 중 평가적 자기제제를 성공적으로 실천했습니다.<br><br>진영 논리에 휩쓸리는 대신, 최소한의 의사소통 규칙이 지켜지지 않는 공론장에서 스스로 물러서는 것도 공론장을 보호하는 중요한 숙의 민주주의 실천입니다.</div>
-    <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+    <div class="ebtns">
+      <button class="rbtn" onclick="saveTxt()">💾 대화록 저장 (.txt)</button>
+      <button class="rbtn" onclick="saveCsv()">📊 데이터 저장 (.csv)</button>
+      <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+    </div>
   </div>
 </div>
 <script src="app.js"></script>
