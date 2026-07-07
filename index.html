@@ -72,21 +72,21 @@
     </div>
     <!-- Step 4 -->
     <div class="step" id="s4">
-      <div class="wt">👤 토론 상대 페르소나 선택</div>
-      <div class="ws">어떤 유형의 디지털 부족주의 유저와 토론하시겠습니까?</div>
+      <div class="wt">👤 토론 상대 페르소나 선택 <span class="clearprog" id="clearProg"></span></div>
+      <div class="ws">어떤 유형의 디지털 부족주의 유저와 토론하시겠습니까? 세 유형 모두와 합의를 이끌어내면 최종 완주입니다.</div>
       <div class="pcard" id="cA" onclick="pickP('A')">
         <div class="pem">⚔️</div>
-        <div><div class="pname" style="color:#e74c3c">페르소나 A — 도덕적 정당화형 근본주의자</div>
+        <div><div class="pname" style="color:#e74c3c">페르소나 A — 도덕적 정당화형 근본주의자 <span class="clearbadge hidden" id="clrA">✅ 클리어</span></div>
         <div class="pdesc">특정 집단을 "악"으로 규정하고 정의의 이름으로 집단 린치 자행. 도덕적 우월감으로 상대를 "위선자"로 몰아세움.</div></div>
       </div>
       <div class="pcard" id="cB" onclick="pickP('B')">
         <div class="pem">🎭</div>
-        <div><div class="pname" style="color:#8e44ad">페르소나 B — 프레임 제조기 &amp; 양자택일 강요자</div>
+        <div><div class="pname" style="color:#8e44ad">페르소나 B — 프레임 제조기 &amp; 양자택일 강요자 <span class="clearbadge hidden" id="clrB">✅ 클리어</span></div>
         <div class="pdesc">이분법적 편 가르기로 인지 유연성을 마비시킴. "아군이냐 적군이냐"를 강요하는 가스라이팅 유저.</div></div>
       </div>
       <div class="pcard" id="cC" onclick="pickP('C')">
         <div class="pem">😤</div>
-        <div><div class="pname" style="color:#e67e22">페르소나 C — 피해 의식형 정동적 폭주자</div>
+        <div><div class="pname" style="color:#e67e22">페르소나 C — 피해 의식형 정동적 폭주자 <span class="clearbadge hidden" id="clrC">✅ 클리어</span></div>
         <div class="pdesc">"우리는 항상 당해왔다"는 피해의식으로 합리적 질문을 음모·차별로 규정. 감정적으로 폭주하는 방어기제 유저.</div></div>
       </div>
       <div class="err hidden" id="p4err">페르소나를 선택해 주세요.</div>
@@ -153,9 +153,10 @@
     <div class="estats" id="endStats1"></div>
     <div class="emsg" id="e1msg"></div>
     <div class="ebtns">
+      <button class="rbtn primary" onclick="nextPersona()">▶ 다음 페르소나에 도전</button>
       <button class="rbtn" onclick="saveTxt()">💾 대화록 저장 (.txt)</button>
       <button class="rbtn" onclick="saveCsv()">📊 데이터 저장 (.csv)</button>
-      <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+      <button class="rbtn" onclick="location.reload()">↺ 처음부터 다시</button>
     </div>
   </div>
   <div class="end2 hidden" id="end2">
@@ -163,11 +164,28 @@
     <div class="etitle">엔딩 2: 공론장 위생 격리 성공</div>
     <div class="estats" id="endStats2"></div>
     <div class="esys">[시스템 메시지: 공론장 규칙을 파괴하는 트롤 유저가 격리되었습니다. 학생이 무의미한 진영 논리에 녹아들지 않고, 스스로 평가적 자기제제를 수행하여 공론장의 안정성을 지켜냈습니다.]</div>
-    <div class="emsg">🎓 학습 성취: 하버마스의 의사소통 합리성 원칙 중 평가적 자기제제를 성공적으로 실천했습니다.<br><br>진영 논리에 휩쓸리는 대신, 최소한의 의사소통 규칙이 지켜지지 않는 공론장에서 스스로 물러서는 것도 공론장을 보호하는 중요한 숙의 민주주의 실천입니다.</div>
+    <div class="emsg">🎓 학습 성취: 하버마스의 의사소통 합리성 원칙 중 평가적 자기제제를 성공적으로 실천했습니다.<br><br>진영 논리에 휩쓸리는 대신, 최소한의 의사소통 규칙이 지켜지지 않는 공론장에서 스스로 물러서는 것도 공론장을 보호하는 중요한 숙의 민주주의 실천입니다.<br><br>준비가 되면 다시 도전해 보세요 — 이번에는 합의까지 이끌어낼 수 있을지도 모릅니다.</div>
+    <div class="ebtns">
+      <button class="rbtn primary" onclick="retrySame()">🔄 같은 페르소나 재도전</button>
+      <button class="rbtn" onclick="nextPersona()">👤 다른 페르소나 선택</button>
+      <button class="rbtn" onclick="saveTxt()">💾 대화록 저장 (.txt)</button>
+      <button class="rbtn" onclick="saveCsv()">📊 데이터 저장 (.csv)</button>
+      <button class="rbtn" onclick="location.reload()">↺ 처음부터 다시</button>
+    </div>
+  </div>
+  <div class="end3 hidden" id="end3">
+    <div class="eicon">🎉</div>
+    <div class="etitle">최종 완주! 세 페르소나 모두와 합의 도출 성공</div>
+    <div class="estats" id="endStats3"></div>
+    <div class="emsg">🎓 세 가지 서로 다른 정당화 기제 — 도덕적 정당화, 이분법 프레임, 피해의식 폭주 — 를 모두 상대로, 진영 논리에 휩쓸리지 않고 공존의 규칙을 절차적으로 도출해냈습니다.
+
+이것이 하버마스가 말한 의사소통 합리성의 실천입니다: 상대를 이기는 것이 아니라, 서로 다른 신념을 가진 사람들이 함께 지킬 수 있는 최소한의 기준에 도달하는 것.
+
+디지털 공론장에서 여러분이 오늘 연습한 이 문법이, 실제 온라인 공간에서도 여러분의 무기가 되기를 바랍니다.</div>
     <div class="ebtns">
       <button class="rbtn" onclick="saveTxt()">💾 대화록 저장 (.txt)</button>
       <button class="rbtn" onclick="saveCsv()">📊 데이터 저장 (.csv)</button>
-      <button class="rbtn" onclick="location.reload()">↺ 다시 토론하기</button>
+      <button class="rbtn" onclick="location.reload()">↺ 처음부터 다시</button>
     </div>
   </div>
 </div>
