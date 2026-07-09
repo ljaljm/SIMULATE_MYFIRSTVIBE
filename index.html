@@ -63,7 +63,7 @@
     <!-- Step 3 -->
     <div class="step" id="s3">
       <div class="wt">📋 우리 반 공론장 가이드라인 입력</div>
-      <div class="ws">이전 수업 때 우리가 함께 만든 공론장 가이드라인을 입력해 주세요. 가이드라인의 원리를 실천하는 발화가 상대를 변화시킵니다.</div>
+      <div class="ws">이전 수업 때 우리가 함께 만든 공론장 가이드라인을 입력해 주세요. 이 가이드라인이 토론의 무기가 됩니다 — 상대가 규칙을 위반할 때, 규칙을 근거로 지적하고 시정을 요구하는 발화가 상대를 가장 크게 변화시킵니다.</div>
       <div class="fg">
         <label class="lbl">수업 가이드라인 (자유 형식)</label>
         <textarea class="fi" id="glIn" placeholder="예:&#10;• 하버마스의 보편화 원리(U): 모든 당사자가 동의할 수 있는 규범만 유효&#10;• 담화 원리(D): 대화에 영향받는 모든 사람의 평등한 참여 보장&#10;• 상호 이해를 목표로 하는 의사소통 합리성 실천&#10;• 상대를 이기는 것이 목표가 아닌 공동의 이해 추구"></textarea>
@@ -127,13 +127,13 @@
         <span class="turnct" id="turnCt">턴 0</span>
       </div>
     </div>
-    <div class="dash-note">※ 위 지표는 <b>상대방의 상태</b>입니다 — 가이드라인의 원리를 실천하는 발화가 상대의 도덕적 이탈을 낮추고 합의 역량을 키웁니다.</div>
+    <div class="dash-note">※ 위 지표는 <b>상대방의 상태</b>입니다 — 우리가 약속한 규칙을 근거로 상대의 위반을 지적하고 시정을 요구하는 발화가 상대를 가장 크게 변화시킵니다.</div>
   </div>
   <div class="pbar" id="pbar"></div>
   <div class="chat" id="chat"></div>
   <div class="iarea">
     <div class="irow">
-      <textarea class="cinput" id="cin" placeholder="하버마스의 의사소통 원칙을 활용해 메시지를 입력하세요..." rows="2" onkeydown="onKey(event)"></textarea>
+      <textarea class="cinput" id="cin" placeholder="예: 우리는 ○○하기로 약속했는데, 지금 그 규칙을 위반하고 있습니다. 규칙에 따라 답변해 주세요." rows="2" onkeydown="onKey(event)"></textarea>
       <button class="sbtn" id="sendBtn" onclick="send()">전송</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">

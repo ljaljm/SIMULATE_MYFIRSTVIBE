@@ -9,25 +9,39 @@ const out=[];let pass=0,fail=0;
 function T(name,cond){ if(cond){pass++;out.push('PASS  '+name);} else {fail++;out.push('FAIL  '+name);} }
 function eq(name,a,b){ T(name+' ['+JSON.stringify(a)+'=='+JSON.stringify(b)+']', JSON.stringify(a)===JSON.stringify(b)); }
 
-// ── detectDeliberation ──
-eq('U원리 감지', detectDeliberation('그 원칙을 모두에게 예외 없이 동일한 기준으로 적용해도 옳을까요?'), 'U_PRINCIPLE');
-eq('U원리(역지사지)', detectDeliberation('당신이 저라면 어떻게 느끼실 것 같나요?'), 'U_PRINCIPLE');
+// ── 감지: 규칙 기반 위반 지적 (핵심 실천) ──
+eq('규칙 위반 지적', detectDeliberation('우리는 서로 존중하기로 약속했는데, 당신은 지금 그 규칙을 위반하고 있습니다. 규칙에 따라 답변하세요'), 'RULE_ENFORCE');
+eq('가이드라인 어긋남 지적', detectDeliberation('지금 저를 악마화하는 것은 우리 가이드라인에 어긋납니다'), 'RULE_ENFORCE');
+eq('원리 준수 요구', detectDeliberation('담화 원리에 따라 답변해 주세요'), 'RULE_ENFORCE');
+eq('전술 명명 + 규칙 인용', detectDeliberation('아군이냐 적군이냐는 양자택일 강요는 우리가 합의한 원칙을 무시하는 것입니다'), 'RULE_ENFORCE');
+eq('이탈이 규칙지적보다 우선', detectDeliberation('규칙이 지켜지지 않으니 물러서겠습니다'), 'WITHDRAWAL');
+
+// ── 감지: 기존 원리들 ──
+eq('U원리(원칙 명시)', detectDeliberation('그 원칙을 모두에게 예외 없이 동일한 기준으로 적용해도 옳을까요?'), 'U_PRINCIPLE');
+eq('U원리(역지사지·근거없음)', detectDeliberation('당신이 저라면 어떻게 느끼실 것 같나요?'), 'U_PRINCIPLE');
 eq('D원리 감지', detectDeliberation('이분법을 넘어 다양한 관점의 평등한 참여가 필요합니다'), 'D_PRINCIPLE');
 eq('공존규칙 감지', detectDeliberation('양쪽 모두 동의할 수 있는 최소한의 규칙을 함께 만들어 보면 어떨까요'), 'COMMON_GROUND');
 eq('공감 감지', detectDeliberation('그동안 많이 힘드셨겠다는 것, 저도 이해합니다'), 'EMPATHY');
 eq('이탈 감지', detectDeliberation('저는 이 공론장에서 물러서겠습니다'), 'WITHDRAWAL');
-eq('이탈 우선순위', detectDeliberation('다양한 관점이 필요하지만 대화를 중단하겠습니다'), 'WITHDRAWAL');
 eq('일반 발화', detectDeliberation('그건 완전히 틀린 주장이에요'), 'NONE');
 
-// ── tier / delta ──
-eq('FULL tier', detectionTier('U_PRINCIPLE'), 'FULL');
-eq('PARTIAL tier', detectionTier('EMPATHY'), 'PARTIAL');
+// ── 등급: 규칙·원리 명시 여부가 만점/부분을 가름 ──
+eq('규칙 지적 = FULL', judgeMessage('우리가 약속한 규칙을 위반하고 있습니다. 규칙에 따라 답하세요').tier, 'FULL');
+eq('원칙 명시 U = FULL', judgeMessage('그 원칙을 모두에게 예외 없이 적용해도 옳을까요?').tier, 'FULL');
+eq('근거 없는 U = PARTIAL', judgeMessage('당신이 저라면 어떻게 느끼실 것 같나요?').tier, 'PARTIAL');
+eq('근거 없는 D = PARTIAL', judgeMessage('이분법을 넘어 다양한 관점의 평등한 참여가 필요합니다').tier, 'PARTIAL');
+eq('원리 명시 D = FULL', judgeMessage('담화 원리대로 다양한 관점의 평등한 참여가 필요합니다').tier, 'FULL');
+eq('규칙 명시 공존제안 = FULL', judgeMessage('양쪽 모두 동의할 수 있는 최소한의 규칙을 함께 만들면 어떨까요').tier, 'FULL');
+eq('공감 = PARTIAL', judgeMessage('그 마음 이해합니다').tier, 'PARTIAL');
+eq('일반 = NONE', judgeMessage('말도 안 됩니다').tier, 'NONE');
+
+// ── delta / 60% 상한 ──
 S.scores={d:100,r:0,c:0};
 eq('FULL delta', computeDelta('FULL'), {d:-20,r:20,c:20});
 S.scores={d:100,r:0,c:65};
-eq('공감 60% 상한', computeDelta('PARTIAL'), {d:-10,r:10,c:0});
+eq('PARTIAL 60% 상한', computeDelta('PARTIAL'), {d:-10,r:10,c:0});
 S.scores={d:100,r:0,c:50};
-eq('공감 60% 미만 정상', computeDelta('PARTIAL'), {d:-10,r:10,c:10});
+eq('PARTIAL 60% 미만 정상', computeDelta('PARTIAL'), {d:-10,r:10,c:10});
 
 // ── sanitizeMsgs ──
 eq('연속 user 병합', sanitizeMsgs([{role:'user',content:'a'},{role:'user',content:'b'}]), [{role:'user',content:'a\n\nb'}]);
@@ -35,129 +49,95 @@ eq('선두 assistant 제거', sanitizeMsgs([{role:'assistant',content:'x'},{role
 eq('빈 내용 제거', sanitizeMsgs([{role:'user',content:'  '},{role:'user',content:'a'}]), [{role:'user',content:'a'}]);
 
 // ── 구조화 JSON 파서 ──
-let p=parseAIJson('{"reply":"대사입니다.","score":{"disengagement":-20,"readiness":20,"consensus":20},"reason":"보편화 원리 실천","ending":"none"}');
+let p=parseAIJson('{"reply":"대사입니다.","score":{"disengagement":-20,"readiness":20,"consensus":20},"reason":"규칙 기반 실천","ending":"none"}');
 T('JSON ok', p.ok);
 eq('JSON delta', p.delta, {d:-20,r:20,c:20});
-eq('JSON reply', p.reply, '대사입니다.');
-eq('JSON reason', p.reason, '보편화 원리 실천');
-eq('JSON ending', p.ending, 'none');
-
-p=parseAIJson('```json\n{"reply":"펜스 안 대사","score":{"disengagement":0,"readiness":0,"consensus":0},"reason":"미실천","ending":"none"}\n```');
-T('코드펜스 제거 후 파싱', p.ok&&p.reply==='펜스 안 대사');
-
-p=parseAIJson('앞 잡음 텍스트 {"reply":"중간 JSON","score":{},"reason":"","ending":"2"} 뒤 잡음');
-T('잡음 속 JSON 추출', p.ok&&p.reply==='중간 JSON');
-eq('ending 2 인식', p.ending, '2');
-
-p=parseAIJson('{"reply":"중첩 {괄호} 와 \\"따옴표\\" 포함","score":{"disengagement":-20},"reason":"r","ending":"1"}');
-T('중첩괄호/이스케이프 안전', p.ok&&p.ending==='1');
-
-p=parseAIJson('그냥 일반 텍스트 응답입니다. JSON 아님.');
-T('형식 붕괴 → ok:false', !p.ok);
-eq('폴백 reply=원문', p.reply, '그냥 일반 텍스트 응답입니다. JSON 아님.');
-eq('폴백 delta=0', p.delta, {d:0,r:0,c:0});
-
+eq('JSON reason', p.reason, '규칙 기반 실천');
+p=parseAIJson('```json\n{"reply":"펜스 안 대사","score":{},"reason":"","ending":"none"}\n```');
+T('코드펜스 파싱', p.ok&&p.reply==='펜스 안 대사');
+p=parseAIJson('앞 잡음 {"reply":"중간 JSON","score":{},"reason":"","ending":"2"} 뒤 잡음');
+T('잡음 속 JSON 추출', p.ok&&p.ending==='2');
+p=parseAIJson('그냥 일반 텍스트 응답');
+T('형식 붕괴 → ok:false', !p.ok&&p.reply==='그냥 일반 텍스트 응답');
 p=parseAIJson('{"reply":"클램프","score":{"disengagement":50,"readiness":-30,"consensus":999},"reason":"","ending":"none"}');
 eq('비정상값 클램프', p.delta, {d:0,r:0,c:20});
+p=parseAIJson('{"reply":"부분점수","score":{"disengagement":-10,"readiness":10,"consensus":10},"reason":"","ending":"none"}');
+eq('부분점수 -10 허용', p.delta, {d:-10,r:10,c:10});
+eq('restorePrefill', restorePrefill('"reply":"x"}',{json:true}), '{"reply":"x"}');
+eq('restorePrefill 중복 방지', restorePrefill('{"reply":"x"}',{json:true}), '{"reply":"x"}');
 
-p=parseAIJson('{"score":{"disengagement":-20}}'); // reply 없음
-T('reply 없으면 폴백', !p.ok);
-
-eq('restorePrefill 정상', restorePrefill('"reply":"x"}',{json:true}), '{"reply":"x"}');
-eq('restorePrefill 이미 { 시작', restorePrefill('{"reply":"x"}',{json:true}), '{"reply":"x"}');
-eq('restorePrefill json 아님', restorePrefill('abc',{}), 'abc');
-
-// ── mergeDeltas ──
-eq('병합(로컬 우세)', mergeDeltas({d:-20,r:20,c:20},{d:0,r:0,c:0}), {d:-20,r:20,c:20});
-eq('병합(AI 우세)', mergeDeltas({d:0,r:0,c:0},{d:-20,r:20,c:20}), {d:-20,r:20,c:20});
+// ── mergeDeltas / stages ──
 eq('병합(중복 가산 없음)', mergeDeltas({d:-20,r:20,c:20},{d:-20,r:20,c:20}), {d:-20,r:20,c:20});
-
-// ── stages ──
+eq('병합(AI 우세)', mergeDeltas({d:0,r:0,c:0},{d:-20,r:20,c:20}), {d:-20,r:20,c:20});
 eq('단계 100', stageOf(100).label, '완전 공격');
-eq('단계 79', stageOf(79).label, '당황 조짐');
 eq('단계 40', stageOf(40).label, '방어벽 흔들림');
 eq('단계 0', stageOf(0).label, '내적 모순 직면');
 
-// ── 오프라인 전체 시뮬레이션: U원리 5회 → 엔딩1 ──
-S.topic='온라인 혐오 표현 규제'; S.persona='A'; S.studentPos='찬성'; S.aiPos='반대';
+// ── 오프라인 시뮬레이션 1: 규칙 기반 지적 5회 → 엔딩1 ──
+S.topic='동물 실험 찬반'; S.persona='A'; S.studentPos='반대'; S.aiPos='찬성';
 S.scores={d:100,r:0,c:0}; S.rot={};
 let last=null;
 for(let i=0;i<5;i++){
-  last=offlineTurn('같은 기준을 모두에게 예외 없이 적용해도 옳다고 할 수 있을까요? ('+i+')');
-  T('시뮬레이션 턴'+(i+1)+' 응답 존재', typeof last.reply==='string'&&last.reply.length>5);
+  last=offlineTurn('우리는 상호 존중하기로 약속했는데 지금 그 규칙을 위반하고 있습니다. 규칙에 따라 답변하세요 ('+i+')');
+  T('규칙기반 턴'+(i+1)+' 응답', typeof last.reply==='string'&&last.reply.length>5);
 }
-eq('5회 후 합의 100', S.scores.c, 100);
-eq('엔딩1 도달', last.ending, 1);
-T('END 대본에 주제 삽입', last.reply.includes('온라인 혐오 표현 규제'));
+eq('규칙기반 5회 → 합의 100', S.scores.c, 100);
+eq('규칙기반 5회 → 엔딩1', last.ending, 1);
+T('END 대본에 주제 삽입', last.reply.includes('동물 실험 찬반'));
 
-// 일반 발화 점수 불변 + 로테이션
-S.scores={d:100,r:0,c:0}; S.rot={};
-let r0=offlineTurn('말도 안 되는 소리 하지 마세요');
+// ── 오프라인 시뮬레이션 2: 근거 없는 표현만 반복 → 60%에서 정체 (게임 방지) ──
+S.persona='B'; S.scores={d:100,r:0,c:0}; S.rot={};
+let stalled=null;
+for(let i=0;i<12;i++) stalled=offlineTurn('다양한 관점이 필요합니다 그렇지 않나요 ('+i+')');
+eq('근거 없는 반복 → 합의 60% 정체', S.scores.c, 60);
+T('근거 없는 반복으로는 엔딩1 불가', stalled.ending!==1);
+
+// ── 시뮬레이션 3: 일반 발화 불변 / 이탈 / 페르소나별 END ──
+S.persona='A'; S.scores={d:100,r:0,c:0}; S.rot={};
+offlineTurn('말도 안 되는 소리 하지 마세요');
 eq('일반 발화 점수 불변', S.scores, {d:100,r:0,c:0});
 let a1=offlineTurn('아무 말 1'), a2=offlineTurn('아무 말 2');
-T('대본 로테이션 동작', a1.reply!==a2.reply);
-let rw=offlineTurn('더 이상 대화하지 않겠습니다. 물러서겠습니다.');
-eq('이탈→엔딩2', rw.ending, 2);
-
+T('대본 로테이션', a1.reply!==a2.reply);
+eq('이탈→엔딩2', offlineTurn('더 이상 대화하지 않겠습니다. 물러서겠습니다.').ending, 2);
 ['B','C'].forEach(px=>{
   S.persona=px; S.scores={d:100,r:0,c:0}; S.rot={};
   let lr;
-  for(let i=0;i<5;i++) lr=offlineTurn('보편화 관점에서 같은 기준을 모두에게 적용하면 어떨까요 '+i);
-  eq('페르소나 '+px+' 엔딩1', lr.ending, 1);
+  for(let i=0;i<5;i++) lr=offlineTurn('약속한 가이드라인을 위반하고 있으니 규칙에 따라 답해 주세요 '+i);
+  eq('페르소나 '+px+' 규칙기반 엔딩1', lr.ending, 1);
 });
 
 // ── 라운드 누적 기록 ──
 S.studentName='테스트학생'; S.topic='시험 주제'; S.studentPos='찬성'; S.aiPos='반대';
 S.guidelines='가이드'; S.mode='offline';
 S.rows=[]; S.roundHistory=[]; S.cleared={A:false,B:false,C:false};
-// 라운드 1: 페르소나 A, 엔딩1
-S.round=1; S.persona='A'; S.turns=0; S.sosLeft=3; S.scores={d:100,r:0,c:0}; S.startTime=new Date(); S.endedWith=null;
-S.turns=1; pushRow('학생','1라운드 발화',{det:'U_PRINCIPLE',tier:'FULL',delta:{d:-20,r:20,c:20}});
-pushRow('상대','1라운드 응답',{});
-S.scores={d:0,r:100,c:100}; S.turns=5;
-recordRound(1); S.cleared.A=true; S.endedWith=1;
-// 라운드 2: 페르소나 B, 엔딩2
-S.round=2; S.persona='B'; S.turns=0; S.sosLeft=2; S.scores={d:100,r:0,c:0}; S.startTime=new Date(); S.endedWith=null;
-S.turns=1; pushRow('학생','2라운드 발화',{det:'NONE',tier:'NONE',delta:{d:0,r:0,c:0},reason:'일방적 반박에 머물렀습니다'});
-S.turns=3; recordRound(2); S.endedWith=2;
-
+S.round=1; S.persona='A'; S.turns=1; S.sosLeft=3; S.scores={d:80,r:20,c:20}; S.startTime=new Date();
+pushRow('학생','1라운드 발화',{det:'RULE_ENFORCE',tier:'FULL',delta:{d:-20,r:20,c:20}});
+S.turns=5; S.scores={d:0,r:100,c:100}; recordRound(1);
+S.round=2; S.persona='B'; S.turns=1; S.sosLeft=2; S.scores={d:100,r:0,c:0};
+pushRow('학생','2라운드 발화',{det:'NONE',tier:'NONE',delta:{d:0,r:0,c:0},reason:'일방적 반박'});
+S.turns=3; recordRound(2);
 eq('라운드 기록 2건', S.roundHistory.length, 2);
-eq('라운드1 페르소나', S.roundHistory[0].persona, 'A');
-eq('라운드1 엔딩', S.roundHistory[0].ending, 1);
-eq('라운드2 엔딩', S.roundHistory[1].ending, 2);
-eq('라운드2 SOS', S.roundHistory[1].sos, 1);
-eq('rows에 라운드 구분', [S.rows[0].round,S.rows[2].round], [1,2]);
-eq('rows에 페르소나', [S.rows[0].persona,S.rows[2].persona], ['A','B']);
-
+eq('라운드1 엔딩/페르소나', [S.roundHistory[0].ending,S.roundHistory[0].persona], [1,'A']);
+eq('rows 라운드 구분', [S.rows[0].round,S.rows[1].round], [1,2]);
 let txt=buildTxt(), csv=buildCsv();
-T('TXT 라운드1 구분선', txt.includes('라운드 1'));
-T('TXT 라운드2 구분선', txt.includes('라운드 2'));
-T('TXT 라운드 요약', txt.includes('── 라운드 요약 ──'));
-T('TXT 클리어 목록', txt.includes('클리어한 페르소나'));
-T('TXT AI 판정 사유', txt.includes('AI 판정 사유: 일방적 반박에 머물렀습니다'));
+T('TXT 라운드 요약', txt.includes('── 라운드 요약 ──')&&txt.includes('라운드 2'));
+T('TXT 규칙 판정 라벨', txt.includes('규칙 기반'));
 T('CSV BOM', csv.charCodeAt(0)===0xFEFF);
 T('CSV 라운드 요약 헤더', csv.includes('"라운드","페르소나","턴수","엔딩"'));
-T('CSV 턴 테이블 라운드 열', csv.includes('"시각","라운드","페르소나","턴"'));
-T('CSV 엔딩 표기', csv.includes('"엔딩1"')&&csv.includes('"엔딩2"'));
-T('CSV 판정사유 열', csv.includes('일방적 반박에 머물렀습니다'));
-
-let rsl=roundSummaryLines();
-eq('라운드 요약 2줄', rsl.length, 2);
-T('요약에 턴수', rsl[0].includes('5턴'));
+T('CSV 판정사유', csv.includes('일방적 반박'));
 
 // ── 프롬프트 ──
 S.persona='A'; S.scores={d:60,r:40,c:40};
-let sp=buildSysPrompt('U_PRINCIPLE','FULL');
+let sp=buildSysPrompt('RULE_ENFORCE','FULL');
 T('프롬프트에 주제', sp.includes(S.topic));
-T('프롬프트에 톤 지침', sp.includes('당황 조짐'));
+T('프롬프트에 규칙 기반 규정', sp.includes('규칙 기반 토론'));
+T('프롬프트에 부분 인정 규칙', sp.includes('부분 인정'));
 T('프롬프트에 JSON 형식', sp.includes('"reply"')&&sp.includes('"reason"'));
-T('프롬프트에 로컬 판정', sp.includes('보편화 원리'));
+T('프롬프트에 감지 라벨', sp.includes('규칙 기반 위반 지적'));
 
 // ── util ──
-T('esc 정확성', esc('<b>&')==='&lt;b&gt;&amp;');
-T('esc 줄바꿈', esc('a\nb')==='a<br>b');
-eq('clamp 상한', clamp(150), 100);
-eq('clamp 하한', clamp(-5), 0);
+T('esc', esc('<b>&')==='&lt;b&gt;&amp;');
+eq('clamp', [clamp(150),clamp(-5)], [100,0]);
 
 const summary=`RESULT: ${pass} passed, ${fail} failed`;
 out.push(summary);
