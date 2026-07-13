@@ -16,7 +16,9 @@
       "Bash(perl -i -pe \"s/return '\\\\x{FEFF}'/return '\\\\\\\\\\\\\\\\uFEFF'/ if \\\\$.==849\" app.js)",
       "Bash(sed -i \"849s/return '\\\\xEF\\\\xBB\\\\xBF'/return '\\\\\\\\\\\\\\\\uFEFF'/\" app.js)",
       "Bash(cp \"C:\\\\Users\\\\USER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-USER-my-first-vibe\\\\c16f9f88-6dae-4c09-8419-8908062ae43f\\\\scratchpad\\\\serve.ps1\" \"C:\\\\Users\\\\USER\\\\my-first-vibe\\\\.claude\\\\serve.ps1\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

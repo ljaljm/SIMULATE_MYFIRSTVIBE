@@ -13,7 +13,7 @@ const S = {
   lastStageIdx:0, startTime:null, endedWith:null,
   // 합의(양방향) 관문: 규칙 기반 지적은 상대를 벼랑 끝(합의 GATE%)까지만,
   // 최종 타결은 학생이 직접 작성하는 합의문으로만 이뤄진다.
-  consensusUnlocked:false, consensusStatement:'',
+  consensusUnlocked:false, consensusStatement:'', consensusSubmitting:false, busy:false,
   // 페르소나 연속 도전
   cleared:{A:false,B:false,C:false},
   round:1, roundHistory:[], roundRecorded:false,
@@ -24,6 +24,10 @@ const S = {
 const CONSENSUS_GATE = 80;
 
 const MODE_LABEL = {offline:'🔌 오프라인', proxy:'🏫 교사 프록시', anthropic:'🔑 Claude 직접', gemini:'🔑 Gemini 직접'};
+
+// localStorage가 차단된 환경(학교 PC 보안 정책·시크릿 모드)에서도 앱이 죽지 않도록 안전 래퍼
+function lsGet(k){ try{return localStorage.getItem(k);}catch(_){return null;} }
+function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(_){/* 저장 불가 환경 — 세션 내 메모리로만 동작 */} }
 
 // ── PERSONAS ───────────────────────────────────────────────────────────────
 const P = {
@@ -359,7 +363,7 @@ const SOSG = {
 // ── 연결(모드/키) 관리 ──────────────────────────────────────────────────────
 function onModeChange(){
   S.mode = document.getElementById('modeSel').value;
-  localStorage.setItem('sim_mode', S.mode);
+  lsSet('sim_mode', S.mode);
   renderConn();
 }
 
@@ -396,16 +400,16 @@ function saveConn(){
     if(!u){alert('프록시 주소를 입력해 주세요. (예: https://xxx.workers.dev)');return;}
     if(!/^https?:\/\//.test(u)){alert('주소는 https:// 로 시작해야 합니다.');return;}
     S.proxyUrl=u; S.proxyCode=c;
-    localStorage.setItem('sim_proxy_url',u);
-    localStorage.setItem('sim_proxy_code',c);
+    lsSet('sim_proxy_url',u);
+    lsSet('sim_proxy_code',c);
     renderConn();
   }else{
     const ki=document.getElementById('keyIn');
     if(ki.disabled){ ki.disabled=false; ki.value=''; ki.focus(); document.getElementById('connBtn').textContent='저장'; return; }
     const v=ki.value.trim();
     if(!v||v==='저장됨 ✓'){alert('API 키를 입력해 주세요.');return;}
-    if(S.mode==='gemini'){ S.keyGemini=v; localStorage.setItem('ak_gemini',v); }
-    else{ S.keyAnthropic=v; localStorage.setItem('ak_anthropic',v); }
+    if(S.mode==='gemini'){ S.keyGemini=v; lsSet('ak_gemini',v); }
+    else{ S.keyAnthropic=v; lsSet('ak_anthropic',v); }
     renderConn();
   }
 }
@@ -493,7 +497,7 @@ function startDebate(){
      <span style="color:var(--muted)">|</span>
      <span class="modechip">${MODE_LABEL[S.mode]}</span>
      <span class="modechip" style="color:var(--gold);border-color:rgba(243,156,18,.35);background:rgba(243,156,18,.1)">라운드 ${S.round}</span>`;
-  S.consensusUnlocked=false; S.consensusStatement=''; updateConsensusBtn();
+  S.consensusUnlocked=false; S.consensusStatement=''; S.consensusSubmitting=false; S.busy=false; updateConsensusBtn();
   updateScores(true); updateSOS(); updateTurn();
   const opener=buildOpener();
   S.history.push({role:'user',content:'[토론을 시작하겠습니다]'});
@@ -554,6 +558,7 @@ async function apiSend(msg){
   const localDelta=computeDelta(tier);
   try{
     const raw=await callAIWithRetry(buildSysPrompt(det,tier), sanitizeMsgs(S.history.slice(-12)), 3, {json:true});
+    if(S.endedWith) return;   // 대기 중 라운드가 종료됐으면(이탈 선언 등) 늦은 응답 전체 폐기
     const p=parseAIJson(raw);
     let final, ending=null, reason='';
     if(p.ok){
@@ -578,6 +583,7 @@ async function apiSend(msg){
     }
     finishTurn(r);
   }catch(e){
+    if(S.endedWith) return;   // 종료 후 도착한 오류/응답은 폐기
     // API 실패 → 오프라인 엔진으로 자동 대체 (수업 흐름 유지)
     addMsg('sys',`⚠️ AI 연결 실패 (${e.message})\n이번 응답은 오프라인 엔진으로 대신합니다.`);
     const r=offlineTurn(msg);
@@ -593,6 +599,9 @@ function capConsensusToGate(delta){
 }
 
 function finishTurn(r){
+  // 응답 대기 중 학생이 이탈 선언 등으로 라운드를 이미 끝낸 경우,
+  // 뒤늦게 도착한 응답이 종료된 라운드의 화면·기록을 오염시키지 않도록 폐기
+  if(S.endedWith) return;
   updateScores();
   S.history.push({role:'assistant',content:r.reply});
   addMsg('a',r.reply);
@@ -635,6 +644,7 @@ function doExit(){
 }
 
 async function doSOS(){
+  if(S.busy||S.endedWith) return;   // 응답 대기 중·종료 후 중복 실행 방지
   if(S.sosLeft<=0){addMsg('sys','⚠️ SOS 찬스를 모두 사용했습니다. 스스로의 힘으로 실천해 보세요!');return;}
   S.sosLeft--; updateSOS(); setLoading(true);
   addMsg('sys','🆘 [시스템 중재자 모드] 대화 맥락 분석 중...');
@@ -650,6 +660,7 @@ async function doSOS(){
       txt=SOSG[S.persona];
     }
   }
+  if(S.endedWith){ setLoading(false); return; }   // SOS 대기 중 라운드 종료 시 폐기
   addMsg('sos',txt);
   pushRow('중재자',txt,{});
   setLoading(false);
@@ -662,11 +673,11 @@ function updateConsensusBtn(){
 }
 
 function openConsensus(){
+  if(S.busy||S.endedWith) return;   // 응답 대기 중·종료 후 열기 방지
   if(!S.consensusUnlocked){
     addMsg('sys','아직 상대의 방어가 충분히 무너지지 않았습니다. 규칙을 근거로 상대의 위반을 지적해 먼저 상대를 흔드세요. (합의 역량 '+CONSENSUS_GATE+'% 도달 시 열립니다)');
     return;
   }
-  if(S.endedWith) return;
   document.getElementById('consensusModal').style.display='flex';
   const ta=document.getElementById('consensusText');
   ta.value=''; setTimeout(()=>ta.focus(),50);
@@ -674,9 +685,11 @@ function openConsensus(){
 function closeConsensus(){ document.getElementById('consensusModal').style.display='none'; }
 
 async function submitConsensus(){
+  if(S.consensusSubmitting||S.endedWith) return;   // 더블클릭 이중 제출 방지
   const ta=document.getElementById('consensusText');
   const text=ta.value.trim();
   if(text.length<15){ alert('합의문을 조금 더 구체적으로 작성해 주세요.\n① 상대의 말 중 내가 동의하는 지점 ② 우리의 공통 기반(교집합) ③ 함께 지킬 공존 규칙을 담아 보세요.'); return; }
+  S.consensusSubmitting=true;
   closeConsensus();
   // 학생의 합의문을 발화로 표시 + 연구 기록
   S.consensusStatement=text;
@@ -1158,9 +1171,14 @@ function addBadge(text,cls){
 
 let loadEl=null;
 function setLoading(on){
+  S.busy=on;   // 응답 대기 중 SOS/합의문/전송의 동시 실행(기록 꼬임) 방지
   const send=document.getElementById('sendBtn');
   const cin=document.getElementById('cin');
   send.disabled=on; cin.disabled=on;
+  const sos=document.getElementById('sosBtn');
+  if(sos) sos.disabled=on||S.sosLeft<=0;
+  const cb=document.getElementById('consensusBtn');
+  if(cb) cb.disabled=on;
   const chat=document.getElementById('chat');
   if(on&&!loadEl){
     loadEl=document.createElement('div');
@@ -1246,9 +1264,11 @@ function showEnd3(){
   document.getElementById('end3').classList.remove('hidden');
   document.getElementById('endStats3').innerHTML=
     `<b>${esc(S.studentName)}</b> · 주제: ${esc(S.topic)}<br><br>`+
-    S.roundHistory.map(rh=>
-      `라운드 ${rh.round} — ${P[rh.persona].full} : <b>${rh.turns}턴</b> · ${rh.ending===1?'🏆 숙의 타결':'🛡️ 공론장 격리'} · SOS ${rh.sos}회`
-    ).join('<br>');
+    S.roundHistory.map(rh=>{
+      let l=`라운드 ${rh.round} — ${P[rh.persona].full} : <b>${rh.turns}턴</b> · ${rh.ending===1?'🏆 숙의 타결':'🛡️ 공론장 격리'} · SOS ${rh.sos}회`;
+      if(rh.statement) l+=`<br><span style="color:var(--gold);font-size:.8rem">　↳ 합의문: ${esc(rh.statement)}</span>`;
+      return l;
+    }).join('<br>');
 }
 
 // ── 페르소나 연속 도전 ───────────────────────────────────────────────────────
@@ -1256,7 +1276,7 @@ function showEnd3(){
 function resetRound(){
   S.scores={d:100,r:0,c:0}; S.sosLeft=3; S.history=[]; S.turns=0; S.rot={};
   S.lastStageIdx=0; S.endedWith=null; S.roundRecorded=false; S.startTime=null;
-  S.consensusUnlocked=false; S.consensusStatement='';
+  S.consensusUnlocked=false; S.consensusStatement=''; S.consensusSubmitting=false; S.busy=false;
   document.getElementById('chat').innerHTML='';
   loadEl=null;
   document.getElementById('sosBtn').disabled=false;
@@ -1285,11 +1305,12 @@ function retrySame(){
 }
 
 // 모바일 등에서 헤더가 여러 줄로 감겨도 채팅 영역이 화면에 딱 맞도록 동적 계산
+// (100vh 대신 innerHeight 사용: 모바일 브라우저 주소창에 입력창이 가려지는 문제 방지)
 function fitDebateHeight(){
   const dp=document.getElementById('debatePanel');
   if(!dp||dp.style.display==='none') return;
   const h=document.querySelector('header');
-  dp.style.height=`calc(100vh - ${h?h.offsetHeight:52}px)`;
+  dp.style.height=(window.innerHeight-(h?h.offsetHeight:52))+'px';
 }
 
 function clamp(v){return Math.max(0,Math.min(100,v));}
@@ -1302,11 +1323,11 @@ function esc(s){
 // ── INIT (브라우저에서만 실행) ───────────────────────────────────────────────
 if(typeof document!=='undefined'&&document.getElementById('modeSel')){
   (function(){
-    S.keyAnthropic=localStorage.getItem('ak_anthropic')||localStorage.getItem('ak')||'';
-    S.keyGemini=localStorage.getItem('ak_gemini')||'';
-    S.proxyUrl=localStorage.getItem('sim_proxy_url')||'';
-    S.proxyCode=localStorage.getItem('sim_proxy_code')||'';
-    S.mode=localStorage.getItem('sim_mode')||'offline';
+    S.keyAnthropic=lsGet('ak_anthropic')||lsGet('ak')||'';
+    S.keyGemini=lsGet('ak_gemini')||'';
+    S.proxyUrl=lsGet('sim_proxy_url')||'';
+    S.proxyCode=lsGet('sim_proxy_code')||'';
+    S.mode=lsGet('sim_mode')||'offline';
     if(!MODE_LABEL[S.mode]) S.mode='offline';
     document.getElementById('modeSel').value=S.mode;
     renderConn();
