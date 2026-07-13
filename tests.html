@@ -77,53 +77,66 @@ eq('단계 0', stageOf(0).label, '내적 모순 직면');
 S.topic='동물 실험 찬반'; S.persona='A'; S.studentPos='반대'; S.aiPos='찬성';
 S.scores={d:100,r:0,c:0}; S.rot={};
 let last=null;
-for(let i=0;i<5;i++){
+for(let i=0;i<8;i++){
   last=offlineTurn('우리는 상호 존중하기로 약속했는데 지금 그 규칙을 위반하고 있습니다. 규칙에 따라 답변하세요 ('+i+')');
   T('규칙기반 턴'+(i+1)+' 응답', typeof last.reply==='string'&&last.reply.length>5);
 }
-eq('규칙기반 5회 → 합의 100', S.scores.c, 100);
-eq('규칙기반 5회 → 엔딩1', last.ending, 1);
-T('END 대본에 주제 삽입', last.reply.includes('동물 실험 찬반'));
+eq('규칙기반 반복 → 합의 GATE(80)에서 정체', S.scores.c, 80);
+T('규칙기반만으로는 엔딩1 불가 (합의문 필요)', last.ending==null);
+eq('규칙기반 반복 → 이탈 0까지 하락', S.scores.d, 0);
 
-// ── 오프라인 시뮬레이션 2: 근거 없는 표현만 반복 → 60%에서 정체 (게임 방지) ──
+// ── 게이트/합의문 관문 ──
+S.scores={d:20,r:80,c:60};
+eq('FULL이 GATE 넘지 않게 캡', computeDelta('FULL').c, 20);
+S.scores={d:20,r:80,c:70};
+eq('GATE 근처 부분 상승', computeDelta('FULL').c, 10);
+S.scores={d:0,r:100,c:80};
+eq('GATE 도달 후 FULL 합의 0', computeDelta('FULL').c, 0);
+S.scores={d:50,r:50,c:75};
+eq('capConsensusToGate 캡', capConsensusToGate({d:-20,r:20,c:20}).c, 5);
+eq('MUTUAL_CONSENSUS 라벨 존재', typeof DETS.MUTUAL_CONSENSUS.label, 'string');
+
+// ── 근거 없는 표현만 반복 → 60%에서 정체 (게임 방지) ──
 S.persona='B'; S.scores={d:100,r:0,c:0}; S.rot={};
 let stalled=null;
 for(let i=0;i<12;i++) stalled=offlineTurn('다양한 관점이 필요합니다 그렇지 않나요 ('+i+')');
 eq('근거 없는 반복 → 합의 60% 정체', S.scores.c, 60);
-T('근거 없는 반복으로는 엔딩1 불가', stalled.ending!==1);
+T('근거 없는 반복으로는 엔딩1 불가', stalled.ending==null);
 
-// ── 시뮬레이션 3: 일반 발화 불변 / 이탈 / 페르소나별 END ──
+// ── 일반 발화 불변 / 이탈 / 로테이션 ──
 S.persona='A'; S.scores={d:100,r:0,c:0}; S.rot={};
 offlineTurn('말도 안 되는 소리 하지 마세요');
 eq('일반 발화 점수 불변', S.scores, {d:100,r:0,c:0});
 let a1=offlineTurn('아무 말 1'), a2=offlineTurn('아무 말 2');
 T('대본 로테이션', a1.reply!==a2.reply);
 eq('이탈→엔딩2', offlineTurn('더 이상 대화하지 않겠습니다. 물러서겠습니다.').ending, 2);
-['B','C'].forEach(px=>{
+T('offlineTurn은 엔딩1을 반환하지 않음', ['A','B','C'].every(px=>{
   S.persona=px; S.scores={d:100,r:0,c:0}; S.rot={};
-  let lr;
-  for(let i=0;i<5;i++) lr=offlineTurn('약속한 가이드라인을 위반하고 있으니 규칙에 따라 답해 주세요 '+i);
-  eq('페르소나 '+px+' 규칙기반 엔딩1', lr.ending, 1);
-});
+  let lr; for(let i=0;i<8;i++) lr=offlineTurn('약속한 가이드라인을 위반하고 있으니 규칙에 따라 답해 주세요 '+i);
+  return lr.ending==null && S.scores.c===80;
+}));
 
 // ── 라운드 누적 기록 ──
 S.studentName='테스트학생'; S.topic='시험 주제'; S.studentPos='찬성'; S.aiPos='반대';
 S.guidelines='가이드'; S.mode='offline';
 S.rows=[]; S.roundHistory=[]; S.cleared={A:false,B:false,C:false};
-S.round=1; S.persona='A'; S.turns=1; S.sosLeft=3; S.scores={d:80,r:20,c:20}; S.startTime=new Date();
+S.round=1; S.persona='A'; S.turns=5; S.sosLeft=3; S.scores={d:0,r:100,c:100}; S.startTime=new Date();
 pushRow('학생','1라운드 발화',{det:'RULE_ENFORCE',tier:'FULL',delta:{d:-20,r:20,c:20}});
-S.turns=5; S.scores={d:0,r:100,c:100}; recordRound(1);
-S.round=2; S.persona='B'; S.turns=1; S.sosLeft=2; S.scores={d:100,r:0,c:0};
+S.consensusStatement='나는 불의에 대한 분노에 동의하고, 우리의 공통 기반은 피해 예방이며, 서로 악마화하지 않기로 한다';
+recordRound(1);
+S.round=2; S.persona='B'; S.turns=1; S.sosLeft=2; S.scores={d:100,r:0,c:0}; S.consensusStatement='';
 pushRow('학생','2라운드 발화',{det:'NONE',tier:'NONE',delta:{d:0,r:0,c:0},reason:'일방적 반박'});
 S.turns=3; recordRound(2);
 eq('라운드 기록 2건', S.roundHistory.length, 2);
 eq('라운드1 엔딩/페르소나', [S.roundHistory[0].ending,S.roundHistory[0].persona], [1,'A']);
+eq('라운드1 합의문 저장', S.roundHistory[0].statement.includes('악마화하지 않기'), true);
+eq('라운드2 합의문 없음(엔딩2)', S.roundHistory[1].statement, '');
 eq('rows 라운드 구분', [S.rows[0].round,S.rows[1].round], [1,2]);
 let txt=buildTxt(), csv=buildCsv();
 T('TXT 라운드 요약', txt.includes('── 라운드 요약 ──')&&txt.includes('라운드 2'));
-T('TXT 규칙 판정 라벨', txt.includes('규칙 기반'));
+T('TXT 합의문 포함', txt.includes('↳ 합의문:')&&txt.includes('피해 예방'));
 T('CSV BOM', csv.charCodeAt(0)===0xFEFF);
-T('CSV 라운드 요약 헤더', csv.includes('"라운드","페르소나","턴수","엔딩"'));
+T('CSV 라운드 요약 헤더 + 합의문 열', csv.includes('"최종합의","합의문","시작"'));
 T('CSV 판정사유', csv.includes('일방적 반박'));
 
 // ── 프롬프트 ──
@@ -134,6 +147,9 @@ T('프롬프트에 규칙 기반 규정', sp.includes('규칙 기반 토론'));
 T('프롬프트에 부분 인정 규칙', sp.includes('부분 인정'));
 T('프롬프트에 JSON 형식', sp.includes('"reply"')&&sp.includes('"reason"'));
 T('프롬프트에 감지 라벨', sp.includes('규칙 기반 위반 지적'));
+let cp=buildConsensusReplyPrompt('내가 동의하는 지점과 공통 기반');
+T('합의문 응답 프롬프트에 합의문 삽입', cp.includes('내가 동의하는 지점과 공통 기반'));
+T('합의문 응답 프롬프트 상호수용 지시', cp.includes('상호적 수용')||cp.includes('함께 지킬'));
 
 // ── util ──
 T('esc', esc('<b>&')==='&lt;b&gt;&amp;');

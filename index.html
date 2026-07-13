@@ -137,10 +137,33 @@
       <button class="sbtn" id="sendBtn" onclick="send()">전송</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="sosbtn consensus hidden" id="consensusBtn" onclick="openConsensus()">🤝 합의문 작성 (합의로 마무리)</button>
       <button class="sosbtn" id="sosBtn" onclick="doSOS()">🆘 도움 요청 (SOS) — <span id="sosN">3</span>회 남음</button>
       <button class="sosbtn" id="saveBtn" onclick="saveTxt()" style="color:var(--blue);border-color:rgba(41,128,185,.3);background:rgba(41,128,185,.08)">💾 기록 저장</button>
       <button class="sosbtn" id="exitBtn" onclick="doExit()" style="color:var(--red);border-color:rgba(231,76,60,.28);background:rgba(231,76,60,.08)">🚪 공론장 이탈 선언</button>
       <span class="hint">[SOS] 또는 [도움 요청] 입력도 가능</span>
+    </div>
+  </div>
+</div>
+
+<!-- 합의문 작성 모달 -->
+<div id="consensusModal">
+  <div class="cbox">
+    <div class="ctitle">🤝 합의문 작성</div>
+    <div class="cdesc">상대를 이기는 것이 아니라 <b>함께 합의</b>하는 단계입니다. 아래 세 가지를 담아 자유롭게 작성해 보세요.<br>
+      <span class="cwarn">⚠️ 상대의 조작 방식(악마화·편 가르기·감정 강요)에 동의하라는 뜻이 아닙니다. 그 아래 깔린 <b>정당한 관심사</b>에서 접점을 찾으세요.</span>
+    </div>
+    <textarea id="consensusText" placeholder="① 상대의 말 중 내가 동의할 수 있는 지점:
+   (예: 불의에 분노하는 마음 자체는 정당하다고 생각합니다.)
+
+② 우리의 공통 기반 · 교집합:
+   (예: 우리 둘 다 '피해자가 더 생기지 않기'를 바랍니다.)
+
+③ 함께 지킬 공존 규칙:
+   (예: 서로를 악마화하지 않고, 근거로 대화하기로 합니다.)"></textarea>
+    <div class="cbtns">
+      <button class="rbtn" onclick="closeConsensus()">취소</button>
+      <button class="rbtn primary" onclick="submitConsensus()">합의문 제출 →</button>
     </div>
   </div>
 </div>
@@ -152,6 +175,7 @@
     <div class="etitle">엔딩 1: 숙의 타결 성공!</div>
     <div class="estats" id="endStats1"></div>
     <div class="emsg" id="e1msg"></div>
+    <div class="e1statement hidden" id="e1statement"></div>
     <div class="ebtns">
       <button class="rbtn primary" onclick="nextPersona()">▶ 다음 페르소나에 도전</button>
       <button class="rbtn" onclick="saveTxt()">💾 대화록 저장 (.txt)</button>

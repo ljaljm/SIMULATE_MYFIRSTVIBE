@@ -11,11 +11,17 @@ const S = {
   sosLeft:3, history:[], turns:0, rot:{},
   mode:'offline', proxyUrl:'', proxyCode:'', keyAnthropic:'', keyGemini:'',
   lastStageIdx:0, startTime:null, endedWith:null,
+  // 합의(양방향) 관문: 규칙 기반 지적은 상대를 벼랑 끝(합의 GATE%)까지만,
+  // 최종 타결은 학생이 직접 작성하는 합의문으로만 이뤄진다.
+  consensusUnlocked:false, consensusStatement:'',
   // 페르소나 연속 도전
   cleared:{A:false,B:false,C:false},
   round:1, roundHistory:[], roundRecorded:false,
   rows:[]   // 연구 기록(전체 라운드 누적): {t, round, persona, turn, speaker, msg, det, ...}
 };
+
+// 규칙 기반 지적만으로 도달 가능한 합의 역량 상한 (나머지 20%는 합의문으로만)
+const CONSENSUS_GATE = 80;
 
 const MODE_LABEL = {offline:'🔌 오프라인', proxy:'🏫 교사 프록시', anthropic:'🔑 Claude 직접', gemini:'🔑 Gemini 직접'};
 
@@ -70,6 +76,7 @@ const DETS = {
   D_PRINCIPLE:  {label:'🟣 담화 원리(D) 실천 감지', cls:'pos'},
   COMMON_GROUND:{label:'🟢 공존 규칙 제안 감지', cls:'pos'},
   EMPATHY:      {label:'🤝 상호 존중·경청 감지 (부분 인정)', cls:'pos'},
+  MUTUAL_CONSENSUS:{label:'🤝 합의문 — 양방향 합의 도달', cls:'pos'},
   NONE:         {label:'⚫ 숙의 문법 미감지 — 가이드라인의 규칙을 근거로 말해 보세요', cls:'neu'}
 };
 
@@ -114,12 +121,19 @@ function judgeMessage(msg){
   return {det,tier};
 }
 
-// 부분 인정(근거 없는 표현·공감)만으로는 합의 역량이 60%까지만 상승
+// 합의 역량 상승 규칙:
+//  - FULL(규칙 기반 실천): 합의 역량을 GATE(80%)까지만 끌어올림 → 상대를 벼랑 끝으로
+//  - PARTIAL(근거 없는 표현·공감): 60%까지만 상승
+//  - 마지막 GATE→100%는 오직 학생의 합의문 작성으로만 (submitConsensus)
 function computeDelta(tier){
-  if(tier==='FULL') return {...DELTAS.FULL};
+  if(tier==='FULL'){
+    const dl={...DELTAS.FULL};
+    dl.c=Math.max(0,Math.min(dl.c, CONSENSUS_GATE-S.scores.c));
+    return dl;
+  }
   if(tier==='PARTIAL'){
     const dl={...DELTAS.PARTIAL};
-    if(S.scores.c>=60) dl.c=0;
+    dl.c=Math.max(0,Math.min(dl.c, 60-S.scores.c));
     return dl;
   }
   return {d:0,r:0,c:0};
@@ -294,14 +308,13 @@ function pickScripted(type){
 }
 
 // 오프라인 한 턴 처리 (순수 로직 — UI 없음)
+// ※ 엔딩1(숙의 타결)은 더 이상 점수만으로 발생하지 않는다 → 합의문(submitConsensus)으로만.
 function offlineTurn(msg){
   const {det,tier} = judgeMessage(msg);
   if(det==='WITHDRAWAL')
     return {det, tier:'NONE', delta:{d:0,r:0,c:0}, ending:2, reply:fillTopic(OFF[S.persona].WITHDRAWAL)};
   const delta = computeDelta(tier);
   applyDeltaPure(delta);
-  if(S.scores.c>=100)
-    return {det, tier, delta, ending:1, reply:fillTopic(OFF[S.persona].END)};
   const reply = pickScripted(tier==='NONE'?'NO_CHANGE':'PROGRESS');
   return {det, tier, delta, ending:null, reply};
 }
@@ -480,6 +493,7 @@ function startDebate(){
      <span style="color:var(--muted)">|</span>
      <span class="modechip">${MODE_LABEL[S.mode]}</span>
      <span class="modechip" style="color:var(--gold);border-color:rgba(243,156,18,.35);background:rgba(243,156,18,.1)">라운드 ${S.round}</span>`;
+  S.consensusUnlocked=false; S.consensusStatement=''; updateConsensusBtn();
   updateScores(true); updateSOS(); updateTurn();
   const opener=buildOpener();
   S.history.push({role:'user',content:'[토론을 시작하겠습니다]'});
@@ -543,16 +557,14 @@ async function apiSend(msg){
     const p=parseAIJson(raw);
     let final, ending=null, reason='';
     if(p.ok){
-      final=mergeDeltas(localDelta,p.delta);
+      final=capConsensusToGate(mergeDeltas(localDelta,p.delta));   // 합의 역량은 GATE까지만
       reason=p.reason;
       applyDeltaPure(final);
-      if(p.ending==='2') ending=2;
-      else if(p.ending==='1'||S.scores.c>=100) ending=1;
+      if(p.ending==='2') ending=2;   // 엔딩1은 점수/AI가 아니라 합의문으로만 → 여기서 촉발하지 않음
     }else{
       // 형식 붕괴 → 키워드 채점 폴백 (본문은 그대로 사용)
       final=localDelta;
       applyDeltaPure(final);
-      if(S.scores.c>=100) ending=1;
     }
     let reply=p.reply;
     if(!reply||reply.length<2) reply=pickScripted(tier==='NONE'?'NO_CHANGE':'PROGRESS');
@@ -574,13 +586,31 @@ async function apiSend(msg){
   }
 }
 
+// 합의 역량 상승분을 GATE 상한 안으로 제한 (AI 판정이 과도하게 올리는 것 방지)
+function capConsensusToGate(delta){
+  delta.c=Math.max(0,Math.min(delta.c, CONSENSUS_GATE-S.scores.c));
+  return delta;
+}
+
 function finishTurn(r){
   updateScores();
   S.history.push({role:'assistant',content:r.reply});
   addMsg('a',r.reply);
   pushRow('상대', r.reply, {});
-  if(r.ending===2){ S.endedWith=2; setTimeout(showEnd2,700); }
-  else if(r.ending===1){ S.endedWith=1; setTimeout(showEnd1,900); }
+  if(r.ending===2){ S.endedWith=2; setTimeout(showEnd2,700); return; }
+  if(r.ending===1){ S.endedWith=1; setTimeout(showEnd1,900); return; }
+  maybeUnlockConsensus();
+}
+
+// 상대가 벼랑 끝(합의 역량 GATE 도달)에 이르면 '합의문 작성' 관문을 연다
+function maybeUnlockConsensus(){
+  if(S.consensusUnlocked||S.endedWith) return;
+  if(S.scores.c>=CONSENSUS_GATE){
+    S.consensusUnlocked=true;
+    updateConsensusBtn();
+    addMsg('sys','🤝 상대의 방어가 무너졌습니다. 하지만 이건 승리가 아니라 대화의 시작입니다.\n이제 일방적으로 상대를 이기는 대신, 서로가 동의할 수 있는 지점을 찾아 \'합의\'로 마무리할 차례입니다.\n아래 [🤝 합의문 작성] 버튼을 눌러, 상대의 말 중 내가 동의하는 지점과 우리의 공통 기반을 직접 정리해 보세요.');
+    addBadge('✨ 합의문 작성 관문이 열렸습니다 — 진짜 합의를 만들어 보세요!','stage');
+  }
 }
 
 function showDetection(r){
@@ -623,6 +653,59 @@ async function doSOS(){
   addMsg('sos',txt);
   pushRow('중재자',txt,{});
   setLoading(false);
+}
+
+// ── 합의문(양방향 합의) ──────────────────────────────────────────────────────
+function updateConsensusBtn(){
+  const b=document.getElementById('consensusBtn');
+  if(b) b.classList.toggle('hidden',!S.consensusUnlocked||!!S.endedWith);
+}
+
+function openConsensus(){
+  if(!S.consensusUnlocked){
+    addMsg('sys','아직 상대의 방어가 충분히 무너지지 않았습니다. 규칙을 근거로 상대의 위반을 지적해 먼저 상대를 흔드세요. (합의 역량 '+CONSENSUS_GATE+'% 도달 시 열립니다)');
+    return;
+  }
+  if(S.endedWith) return;
+  document.getElementById('consensusModal').style.display='flex';
+  const ta=document.getElementById('consensusText');
+  ta.value=''; setTimeout(()=>ta.focus(),50);
+}
+function closeConsensus(){ document.getElementById('consensusModal').style.display='none'; }
+
+async function submitConsensus(){
+  const ta=document.getElementById('consensusText');
+  const text=ta.value.trim();
+  if(text.length<15){ alert('합의문을 조금 더 구체적으로 작성해 주세요.\n① 상대의 말 중 내가 동의하는 지점 ② 우리의 공통 기반(교집합) ③ 함께 지킬 공존 규칙을 담아 보세요.'); return; }
+  closeConsensus();
+  // 학생의 합의문을 발화로 표시 + 연구 기록
+  S.consensusStatement=text;
+  S.turns++; updateTurn();
+  addMsg('u2',text);
+  S.history.push({role:'user',content:'[합의문] '+text});
+  pushRow('학생(합의문)',text,{det:'MUTUAL_CONSENSUS',tier:'FULL',delta:{d:0,r:0,c:20}});
+  // 합의 역량 100% 봉인
+  S.scores.c=100; S.scores.d=clamp(S.scores.d); S.scores.r=Math.max(S.scores.r,80);
+  updateScores();
+  addBadge('🤝 합의문 제출 — 일방적 승리가 아닌 양방향 합의에 도달했습니다!','pos');
+  setLoading(true);
+  // 상대의 최종 상호수용 응답
+  let reply=fillTopic(OFF[S.persona].END);
+  if(S.mode!=='offline'){
+    try{
+      const raw=await callAIWithRetry(buildConsensusReplyPrompt(text), sanitizeMsgs(S.history.slice(-8)), 2, {json:true});
+      const p=parseAIJson(raw);
+      if(p.ok&&p.reply&&p.reply.length>=2) reply=p.reply;
+    }catch(_){/* 실패 시 오프라인 END 대본 사용 */}
+  }else{
+    await sleep(700);
+  }
+  S.history.push({role:'assistant',content:reply});
+  addMsg('a',reply);
+  pushRow('상대',reply,{});
+  setLoading(false);
+  S.endedWith=1;
+  setTimeout(showEnd1,900);
 }
 
 // ── API LAYER ──────────────────────────────────────────────────────────────
@@ -910,6 +993,25 @@ ${recent}
 (JSON이 아닌 일반 문장으로만 답하세요)`;
 }
 
+// 학생이 제출한 합의문에 대한 페르소나의 최종 상호수용 응답
+function buildConsensusReplyPrompt(statement){
+  const pp=P[S.persona];
+  return `⚠️ 응답 전체는 JSON 객체 하나여야 합니다: {"reply":"...","score":{"disengagement":0,"readiness":0,"consensus":0},"reason":"","ending":"1"}
+
+당신은 '${pp.full}' 페르소나입니다. 주제 "${S.topic}"에서 ${S.aiPos} 입장이었고, 오랜 토론 끝에 방어 논리가 무너진 상태입니다.
+
+학생이 방금 아래 '합의문'을 제출했습니다. 이것은 학생이 당신을 이기려는 게 아니라, 당신의 말 중 동의할 수 있는 지점과 서로의 공통 기반, 함께 지킬 규칙을 정리한 것입니다.
+
+[학생의 합의문]
+${statement}
+
+이제 reply에 다음을 담아 200자 이내로 응답하세요:
+- 당신의 원래 신념(${S.aiPos})은 여전히 다르다는 점을 인정하면서도,
+- 학생이 짚은 공통 기반을 당신도 받아들이고,
+- 일방적으로 진 것이 아니라 '함께 지킬 최소한의 규칙'에 합의한다는 상호적 수용의 태도로 마무리하세요.
+- 학생의 합의문 내용에 구체적으로 반응하세요.`;
+}
+
 // ── 연구 기록 & 내보내기 ────────────────────────────────────────────────────
 function pushRow(speaker,msg,r){
   S.rows.push({
@@ -926,6 +1028,7 @@ function recordRound(endingNo){
     round:S.round, persona:S.persona, personaName:P[S.persona].name,
     turns:S.turns, ending:endingNo, sos:3-S.sosLeft,
     d:S.scores.d, r:S.scores.r, c:S.scores.c,
+    statement:endingNo===1?S.consensusStatement:'',
     start:S.startTime?S.startTime.toISOString():'', end:new Date().toISOString()
   });
 }
@@ -933,9 +1036,11 @@ function recordRound(endingNo){
 function endingLabel(no){ return no===1?'엔딩 1 (숙의 타결 성공)':no===2?'엔딩 2 (공론장 위생 격리)':'진행 중'; }
 
 function roundSummaryLines(){
-  const lines=S.roundHistory.map(rh=>
-    `라운드 ${rh.round} — ${P[rh.persona].full}: ${rh.turns}턴 · ${endingLabel(rh.ending)} · SOS ${rh.sos}회 · 최종(이탈 ${rh.d}%/준비 ${rh.r}%/합의 ${rh.c}%)`
-  );
+  const lines=S.roundHistory.map(rh=>{
+    let l=`라운드 ${rh.round} — ${P[rh.persona].full}: ${rh.turns}턴 · ${endingLabel(rh.ending)} · SOS ${rh.sos}회 · 최종(이탈 ${rh.d}%/준비 ${rh.r}%/합의 ${rh.c}%)`;
+    if(rh.statement) l+=`\n    ↳ 합의문: ${rh.statement}`;
+    return l;
+  });
   // 진행 중인 라운드가 있으면 함께 표시
   if(!S.endedWith&&S.persona&&S.turns>0&&S.round>S.roundHistory.length)
     lines.push(`라운드 ${S.round} — ${P[S.persona].full}: ${S.turns}턴 · 진행 중 · 현재(이탈 ${S.scores.d}%/준비 ${S.scores.r}%/합의 ${S.scores.c}%)`);
@@ -982,8 +1087,8 @@ function csvCell(v){ return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'; }
 function buildCsv(){
   const head=['시각','라운드','페르소나','턴','발화자','메시지','판정','등급','AI판정사유','Δ이탈','Δ준비','Δ합의','이탈%','준비%','합의%'];
   const rows=S.rows.map(r=>[r.t,r.round,r.persona?P[r.persona].name:'',r.turn,r.speaker,r.msg,r.det,r.tier,r.reason,r.dd,r.dr,r.dc,r.d,r.r2,r.c]);
-  const roundHead=['라운드','페르소나','턴수','엔딩','SOS사용','최종이탈','최종준비','최종합의','시작','종료'];
-  const roundRows=S.roundHistory.map(rh=>[rh.round,rh.personaName,rh.turns,rh.ending===1?'엔딩1':'엔딩2',rh.sos,rh.d,rh.r,rh.c,rh.start,rh.end]);
+  const roundHead=['라운드','페르소나','턴수','엔딩','SOS사용','최종이탈','최종준비','최종합의','합의문','시작','종료'];
+  const roundRows=S.roundHistory.map(rh=>[rh.round,rh.personaName,rh.turns,rh.ending===1?'엔딩1':'엔딩2',rh.sos,rh.d,rh.r,rh.c,rh.statement||'',rh.start,rh.end]);
   const meta=[
     ['학생',S.studentName],['주제',S.topic],['학생입장',S.studentPos],['모드',S.mode],
     ['클리어수',['A','B','C'].filter(x=>S.cleared[x]).length],
@@ -1034,6 +1139,9 @@ function addMsg(type,text){
   }else if(type==='sos'){
     el.className='msg sos';
     el.innerHTML=`<div class="sndr" style="color:var(--green)">🆘 시스템 중재자</div><div class="bub">${esc(text)}</div>`;
+  }else if(type==='u2'){
+    el.className='msg u2';
+    el.innerHTML=`<div class="sndr" style="color:var(--gold)">🤝 나의 합의문</div><div class="bub">${esc(text)}</div>`;
   }
   chat.appendChild(el);
   chat.scrollTop=chat.scrollHeight;
@@ -1115,7 +1223,12 @@ function showEnd1(){
   document.getElementById('debatePanel').style.display='none';
   const ep=document.getElementById('endingPanel'); ep.style.display='flex';
   document.getElementById('end1').classList.remove('hidden');
-  document.getElementById('e1msg').textContent='상대의 입장을 바꾼 것이 아니라, 양측이 함께 지킬 수 있는 공존 규칙을 절차적으로 도출해냈습니다.\n\n상대방의 정당화 기제의 모순을 어떻게 짚어냈는지, 어떤 공존 규칙을 제시했는지 아래 [대화록 저장]으로 기록을 내려받아 되돌아보세요.\n\n아직 만나지 않은 다른 유형의 유저가 기다리고 있습니다. 같은 가이드라인으로 다른 정당화 기제도 상대할 수 있을까요?';
+  document.getElementById('e1msg').textContent='상대를 이겨서 굴복시킨 것이 아니라, 서로가 동의할 수 있는 지점과 공통 기반을 찾아 함께 지킬 규칙에 도달했습니다. 이것이 일방적 동의가 아닌 진짜 \'합의\'입니다.\n\n아직 만나지 않은 다른 유형의 유저가 기다리고 있습니다. 같은 가이드라인으로 다른 정당화 기제도 상대할 수 있을까요?';
+  const box=document.getElementById('e1statement');
+  if(S.consensusStatement){
+    box.classList.remove('hidden');
+    box.innerHTML=`<div class="stlbl">🤝 내가 작성한 합의문</div>${esc(S.consensusStatement)}`;
+  }else box.classList.add('hidden');
   fillStats('endStats1');
 }
 
@@ -1143,10 +1256,12 @@ function showEnd3(){
 function resetRound(){
   S.scores={d:100,r:0,c:0}; S.sosLeft=3; S.history=[]; S.turns=0; S.rot={};
   S.lastStageIdx=0; S.endedWith=null; S.roundRecorded=false; S.startTime=null;
+  S.consensusUnlocked=false; S.consensusStatement='';
   document.getElementById('chat').innerHTML='';
   loadEl=null;
   document.getElementById('sosBtn').disabled=false;
   document.getElementById('sendBtn').disabled=false;
+  updateConsensusBtn();
   const cin=document.getElementById('cin'); cin.disabled=false; cin.value='';
   document.getElementById('endingPanel').style.display='none';
   ['end1','end2','end3'].forEach(id=>document.getElementById(id).classList.add('hidden'));
