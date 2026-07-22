@@ -54,7 +54,7 @@ export default {
     // 비용 안전장치: 모델 고정(Haiku), 토큰 상한, 히스토리/본문 길이 제한
     const payload = {
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: Math.min(Number(body.max_tokens) || 400, 500),
+      max_tokens: Math.min(Number(body.max_tokens) || 1000, 1200),
       system: String(body.system || '').slice(0, 8000),
       messages: (Array.isArray(body.messages) ? body.messages : [])
         .slice(-12)

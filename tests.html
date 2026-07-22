@@ -59,6 +59,19 @@ p=parseAIJson('앞 잡음 {"reply":"중간 JSON","score":{},"reason":"","ending"
 T('잡음 속 JSON 추출', p.ok&&p.ending==='2');
 p=parseAIJson('그냥 일반 텍스트 응답');
 T('형식 붕괴 → ok:false', !p.ok&&p.reply==='그냥 일반 텍스트 응답');
+// 실전 결함 케이스: 토큰 한도로 잘린 JSON / 부스러기 / 빈 응답 위장
+p=parseAIJson('{"reply":"당신의 지적은 인정합니다. 하지만 우리의 대의는');
+T('잘린 JSON에서 대사 복구', !p.ok&&p.reply.includes('인정합니다')&&p.reply.endsWith('…'));
+p=parseAIJson('{"reply":"완성된 문장입니다."');
+T('잘린 JSON(문장 완성형) 복구', !p.ok&&p.reply==='완성된 문장입니다.');
+p=parseAIJson('{\n"');
+eq('부스러기 → 빈 대사(대본 폴백 유도)', p.reply, '');
+p=parseAIJson('{"reply":');
+eq('빈 reply 필드 부스러기 → 빈 대사', p.reply, '');
+p=parseAIJson('{"score":{"disengagement":-20}');
+eq('reply 없는 잘린 JSON → 빈 대사', p.reply, '');
+T('hasMeaningfulContent 부스러기 거부', !hasMeaningfulContent('{ "')&&!hasMeaningfulContent('')&&!hasMeaningfulContent('{}'));
+T('hasMeaningfulContent 정상 통과', hasMeaningfulContent('{"reply":"안녕하세요"}')&&hasMeaningfulContent('일반 문장'));
 p=parseAIJson('{"reply":"클램프","score":{"disengagement":50,"readiness":-30,"consensus":999},"reason":"","ending":"none"}');
 eq('비정상값 클램프', p.delta, {d:0,r:0,c:20});
 p=parseAIJson('{"reply":"부분점수","score":{"disengagement":-10,"readiness":10,"consensus":10},"reason":"","ending":"none"}');

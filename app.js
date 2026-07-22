@@ -750,12 +750,18 @@ async function safeFetch(url,opts,timeoutMs=45000){
   }finally{clearTimeout(t);}
 }
 
+// prefill 복원('{' 자동 부착) 때문에 빈 응답이 정상처럼 보이는 것을 방지:
+// JSON 구두점을 걷어낸 실질 내용이 있어야 유효한 응답으로 인정
+function hasMeaningfulContent(r){
+  return !!r && r.replace(/[{}\[\]"'`\s:,]/g,'').length>=3;
+}
+
 async function callAIWithRetry(sys,msgs,maxRetries=3,opts={}){
   let lastErr;
   for(let attempt=1;attempt<=maxRetries;attempt++){
     try{
       const result=await callAI(sys,msgs,opts);
-      if(result&&result.trim()) return result;
+      if(hasMeaningfulContent(result)) return result;
       lastErr=new Error('빈 응답');
     }catch(e){
       lastErr=e;
@@ -799,7 +805,7 @@ async function callProxy(sys,msgs,opts={}){
   if(S.proxyCode) headers['X-Access-Code']=S.proxyCode;
   const res=await safeFetch(S.proxyUrl,{
     method:'POST', headers,
-    body:JSON.stringify({system:sys,messages:withPrefill(msgs,opts),max_tokens:500})
+    body:JSON.stringify({system:sys,messages:withPrefill(msgs,opts),max_tokens:1000})
   });
   if(!res.ok){
     const e=await res.json().catch(()=>({}));
@@ -817,7 +823,7 @@ async function callAnthropic(sys,msgs,opts={}){
       'anthropic-version':'2023-06-01',
       'anthropic-dangerous-direct-browser-access':'true'
     },
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,system:sys,messages:withPrefill(msgs,opts)})
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,system:sys,messages:withPrefill(msgs,opts)})
   });
   if(!res.ok){
     const e=await res.json().catch(()=>({}));
@@ -828,7 +834,9 @@ async function callAnthropic(sys,msgs,opts={}){
 
 async function callGemini(sys,msgs,opts={}){
   const contents=msgs.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.content}]}));
-  const gc={maxOutputTokens:500};
+  // 사고(thinking) 차단 필수: gemini-2.5-flash는 사고 토큰이 maxOutputTokens에서 차감되어
+  // 예산을 사고에 다 쓰면 실제 출력이 '{"' 같은 부스러기만 남는 문제가 있음
+  const gc={maxOutputTokens:1024, thinkingConfig:{thinkingBudget:0}};
   if(opts.json) gc.responseMimeType='application/json';   // Gemini 네이티브 JSON 모드
   const res=await safeFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{
     method:'POST',
@@ -897,8 +905,22 @@ function parseAIJson(raw){
       ending:String(j.ending==null?'none':j.ending).trim()
     };
   }
-  const cleaned=String(raw||'').replace(/```(?:json)?/gi,'').replace(/<!--[\s\S]*?-->/g,'').trim();
-  return {ok:false, reply:cleaned, delta:{d:0,r:0,c:0}, reason:'', ending:'none'};
+  // ── 형식 붕괴 폴백 ──
+  // 1) 토큰 한도로 잘린 JSON이라도 "reply" 필드까지 왔다면 대사만 복구
+  let cand='';
+  const rm=String(raw||'').match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)/);
+  if(rm&&rm[1]){
+    cand=rm[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').replace(/\\\\/g,'\\').trim();
+    if(cand&&!/[.!?…。]$/.test(cand)) cand+='…';   // 문장 중간에 잘렸으면 말줄임으로 마무리
+  }
+  // 2) 복구 실패 시: JSON 부스러기('{', '"reply":' 등)나 초단문은 절대 대사로 내보내지 않음
+  //    → 빈 값을 반환해 호출부가 오프라인 대본 응답으로 대체하게 함
+  if(!cand){
+    const cleaned=String(raw||'').replace(/```(?:json)?/gi,'').replace(/<!--[\s\S]*?-->/g,'').trim();
+    const debris=!cleaned||cleaned.length<8||/^[{\[]/.test(cleaned)||/"(reply|score|reason|ending)"\s*:/.test(cleaned);
+    cand=debris?'':cleaned;
+  }
+  return {ok:false, reply:cand, delta:{d:0,r:0,c:0}, reason:'', ending:'none'};
 }
 
 // ── PROMPTS ────────────────────────────────────────────────────────────────
