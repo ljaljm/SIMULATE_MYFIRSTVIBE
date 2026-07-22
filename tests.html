@@ -160,6 +160,19 @@ T('프롬프트에 규칙 기반 규정', sp.includes('규칙 기반 토론'));
 T('프롬프트에 부분 인정 규칙', sp.includes('부분 인정'));
 T('프롬프트에 JSON 형식', sp.includes('"reply"')&&sp.includes('"reason"'));
 T('프롬프트에 감지 라벨', sp.includes('규칙 기반 위반 지적'));
+// 단계 변화 관련 (프롬프트 우선순위 재구조화)
+T('스킨은 완전 공격 전용으로 격하', sp.includes('80% 이상)에서만'));
+T('단계 지침 최우선 명시', sp.includes('최우선 — 페르소나 기본 성향보다 우선'));
+T('현재 단계(MID) 말투 예시 주입', sp.includes('말은 그럴듯하네요'));
+T('과거 발화 반복 금지 지시', sp.includes('반복하지 말고'));
+S.scores={d:20,r:80,c:60};
+T('단계 내려가면 예시도 교체(CRITICAL)', buildSysPrompt('NONE','NONE').includes('확신이 흔들리는 게 느껴집니다'));
+// 자기 모방(반복) 감지
+S.history=[{role:'user',content:'질문'},{role:'assistant',content:'교묘하게 중립인 척 말장난하며 빠져나가지 마세요. 그래서 당신은 아군입니까, 적군입니까?'}];
+T('반복 감지 — 같은 구호 재사용', tooRepetitive('또 묻죠. 교묘하게 중립인 척 말장난하며 빠져나가지 마세요!'));
+T('반복 아님 — 새로운 문장', !tooRepetitive('그 지적은 인정하겠습니다. 하지만 선택의 순간은 반드시 옵니다.'));
+T('반복 아님 — 15자 미만 짧은 응답', !tooRepetitive('...알겠습니다.'));
+T('반복 아님 — 이전 발화 없음', (()=>{const h=S.history;S.history=[];const r=!tooRepetitive('교묘하게 중립인 척 말장난하며 빠져나가지 마세요');S.history=h;return r;})());
 let cp=buildConsensusReplyPrompt('내가 동의하는 지점과 공통 기반');
 T('합의문 응답 프롬프트에 합의문 삽입', cp.includes('내가 동의하는 지점과 공통 기반'));
 T('합의문 응답 프롬프트 상호수용 지시', cp.includes('상호적 수용')||cp.includes('함께 지킬'));

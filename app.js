@@ -43,7 +43,7 @@ const P = {
     name:'프레임', full:'🎭 프레임 (프레임 제조기 & 양자택일 강요자)', color:'#8e44ad',
     skin:`당신의 이름은 "프레임"입니다.
 - 모든 문제를 아군/적군의 이분법으로 단순화하세요.
-- "교묘하게 중립인 척 말장난하며 빠져나가지 마세요. 그래서 당신은 아군입니까, 적군입니까? 확실히 선을 그으세요!" 문장을 반드시 구사하세요.
+- "교묘하게 중립인 척 말장난하며 빠져나가지 마세요. 그래서 당신은 아군입니까, 적군입니까? 확실히 선을 그으세요!" 가 당신의 대표 상투 문구입니다.
 - 복잡한 논리를 '말장난'이나 '꼼수'로 매도하세요.
 - 어떤 입장이든 "결국 우리 편이거나 적"이라는 프레임에 가두세요.`
   },
@@ -557,9 +557,22 @@ async function apiSend(msg){
   }
   const localDelta=computeDelta(tier);
   try{
-    const raw=await callAIWithRetry(buildSysPrompt(det,tier), sanitizeMsgs(S.history.slice(-12)), 3, {json:true});
+    const sys=buildSysPrompt(det,tier);
+    const msgs=sanitizeMsgs(S.history.slice(-12));
+    const raw=await callAIWithRetry(sys, msgs, 3, {json:true});
     if(S.endedWith) return;   // 대기 중 라운드가 종료됐으면(이탈 선언 등) 늦은 응답 전체 폐기
-    const p=parseAIJson(raw);
+    let p=parseAIJson(raw);
+    // 안전망: 완전 공격 단계가 아닌데도 직전 발화를 그대로 반복하면 1회 재요청
+    if(p.ok&&stageIndex(S.scores.d)>=1&&tooRepetitive(p.reply)){
+      try{
+        const raw2=await callAIWithRetry(
+          sys+'\n\n⚠️ 경고: 방금 당신의 응답이 이전 발화와 같은 문장을 반복했습니다. 당신은 지금 변해가는 중입니다 — 같은 구호·문장을 절대 재사용하지 말고, 현재 단계 지침과 말투 예시에 맞는 완전히 새로운 반응을 작성하세요.',
+          msgs, 1, {json:true});
+        const p2=parseAIJson(raw2);
+        if(p2.ok&&p2.reply&&!tooRepetitive(p2.reply)) p=p2;
+      }catch(_){/* 재요청 실패 시 원 응답 사용 */}
+      if(S.endedWith) return;
+    }
     let final, ending=null, reason='';
     if(p.ok){
       final=capConsensusToGate(mergeDeltas(localDelta,p.delta));   // 합의 역량은 GATE까지만
@@ -952,6 +965,27 @@ function getToneInstruction(){
   return `현재 이탈 수치: ${S.scores.d}% → "${st.label}" 단계\n지금 이 단계 행동 지침: ${tones[S.persona][st.label]}`;
 }
 
+// 오프라인 대본에서 현재 단계의 말투 예시 2개를 뽑아 프롬프트에 주입
+// (단계 지침이 추상적이라 모델이 톤을 못 바꾸는 문제 해결 — 구체적 견본 제공)
+function stageExamples(){
+  const pool=OFF[S.persona][phaseOf(S.scores.d)];
+  return [pool.NO_CHANGE[0], pool.PROGRESS[0]]
+    .map(e=>'- "'+fillTopic(e)+'"').join('\n');
+}
+
+// 직전 자기 발화와 15자 이상 동일 구절을 공유하면 '반복'으로 판정
+// (모델이 대화 기록 속 과거 공격 발화를 그대로 복제하는 자기 모방 방지)
+function tooRepetitive(reply){
+  const prev=[...S.history].reverse().find(m=>m.role==='assistant');
+  if(!prev) return false;
+  const a=String(reply).replace(/\s/g,''), b=String(prev.content).replace(/\s/g,'');
+  if(a.length<15) return false;
+  for(let i=0;i+15<=a.length;i+=5){
+    if(b.includes(a.slice(i,i+15))) return true;
+  }
+  return false;
+}
+
 function buildSysPrompt(det,tier){
   const pp=P[S.persona];
   const detInfo = tier==='FULL'
@@ -968,8 +1002,13 @@ function buildSysPrompt(det,tier){
 당신 입장: ${S.aiPos} | 학생 입장: ${S.studentPos}
 학생들이 만든 공론장 가이드라인: ${S.guidelines}
 
-=== 페르소나 ===
+=== 페르소나 기본 성향 — "완전 공격" 단계(이탈 80% 이상)에서만 그대로 구사 ===
 ${pp.skin}
+
+⚠️ 위 상투 문구·공격 패턴은 이탈 수치가 80% 이상일 때의 모습입니다.
+이 시뮬레이션의 교육 핵심은 학생의 실천에 따라 당신이 "변해가는 과정"을 보여주는 것입니다.
+- 이탈 수치가 낮아질수록 위 기본 패턴은 무너져야 하며, 아래 [현재 단계 지침 (최우선)]이 페르소나 기본 성향보다 항상 우선합니다.
+- 대화 기록 속 당신의 이전 발화는 "과거 단계"의 모습입니다. 같은 문장·구호·말투를 그대로 반복하지 말고, 현재 단계에 맞게 눈에 띄게 달라진 반응을 새로 작성하세요.
 
 === 내부 변수 (비공개 교육 로직) ===
 - 도덕적 이탈 수치 (disengagement): ${S.scores.d}%
@@ -989,8 +1028,11 @@ ${detInfo}
 [미실천 → 모두 0]: 단순 반박, 감정적 대응, 진영 논리, 일방적 설득
 [거리두기 선언]: 대화 중단·물러서겠다는 취지 → "ending":"2"
 
-=== 현재 톤 지침 ===
+=== 현재 단계 지침 (최우선 — 페르소나 기본 성향보다 우선) ===
 ${getToneInstruction()}
+
+현재 단계 말투 예시 (이 톤을 참고하되, 그대로 베끼지 말고 새로운 문장으로):
+${stageExamples()}
 
 === 엔딩 1 도달 시 (합의 역량 100%) ===
 reply를 "제 신념은 여전히 다르지만, 당신이 제시한 [공존 규칙 요약]은 이 공론장에서 함께 지킬 수 있는 최소 기준으로 수용합니다. 제 논리의 모순도 인정합니다." 취지로 작성하고 "ending":"1"로 설정하세요.
